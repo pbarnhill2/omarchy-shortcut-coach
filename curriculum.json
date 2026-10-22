@@ -19,7 +19,7 @@
   {
    "id": "mouse-move",
    "action": "Move window",
-   "keys": "SUPER + LEFT-DRAG",
+   "keys": "SUPER + LEFT-CLICK DRAG",
    "title": "Drag any window",
    "why": "Hold Super, drag with the left mouse button.",
    "level": 1,
@@ -28,7 +28,7 @@
   {
    "id": "mouse-resize",
    "action": "Resize window",
-   "keys": "SUPER + RIGHT-DRAG",
+   "keys": "SUPER + RIGHT-CLICK DRAG",
    "title": "Resize with the mouse",
    "why": "Hold Super, drag with the right mouse button.",
    "level": 1,
@@ -37,7 +37,7 @@
   {
    "id": "mouse-scroll",
    "action": "Scroll active workspace forward",
-   "keys": "SUPER + SCROLL",
+   "keys": "SUPER + SCROLL WHEEL",
    "level": 1,
    "title": "Flip through desktops",
    "why": "Hold Super and roll the scroll wheel.",
