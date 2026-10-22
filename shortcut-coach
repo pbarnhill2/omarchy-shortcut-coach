@@ -232,6 +232,9 @@ def progress(s):
         "total": len(items),
         "complete": mastered == len(items) and len(items) > 0,
         "practicing": sum(1 for i in items if i["practicing"]),
+        # Everything in practice, next check-in first.
+        "inPractice": sorted((i for i in items if i["practicing"]),
+                             key=lambda i: s["practice"][i["id"]]["due"]),
         "checkIns": sum(1 for i in items if i["checkIn"]),
         "paused": s["paused"],
         "introSeen": s["introSeen"],

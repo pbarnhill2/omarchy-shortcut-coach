@@ -32,6 +32,7 @@ BarWidget {
   property bool popoutSwitchClosing: false
   property var sections: []
   property var favorites: []
+  property var inPractice: []
   property int batch: 6
   property int mastered: 0
   property int total: 0
@@ -234,6 +235,7 @@ BarWidget {
         root.batch = data.batch || 6
         root.sections = secs
         root.favorites = data.favorites || []
+        root.inPractice = data.inPractice || []
         root.mastered = data.mastered || 0
         root.total = data.total || 0
         root.complete = !!data.complete
@@ -773,6 +775,73 @@ BarWidget {
     }
   }
 
+  // A folding list at the top of All shortcuts: Favorites, In practice.
+  component ListSection: Column {
+    id: list
+    property string key: ""
+    property string icon: ""
+    property string title: ""
+    property var items: []
+    property bool openByDefault: true
+    readonly property bool open: root.expanded[key] === undefined ? openByDefault : !!root.expanded[key]
+    visible: items.length > 0
+    width: parent ? parent.width : 0
+    Item {
+      width: parent.width
+      height: Style.space(32)
+      Rectangle {
+        anchors.fill: parent
+        radius: Style.space(6)
+        color: listMouse.containsMouse ? Qt.rgba(root.fg.r, root.fg.g, root.fg.b, 0.05) : "transparent"
+      }
+      MouseArea {
+        id: listMouse
+        anchors.fill: parent
+        hoverEnabled: true
+        cursorShape: Qt.PointingHandCursor
+        onClicked: {
+          var next = Object.assign({}, root.expanded)
+          next[list.key] = !list.open
+          root.expanded = next
+        }
+      }
+      Text {
+        x: Style.space(10)
+        width: Style.space(12)
+        anchors.verticalCenter: parent.verticalCenter
+        text: "›"
+        rotation: list.open ? 90 : 0
+        Behavior on rotation { NumberAnimation { duration: 160 } }
+        color: root.dim
+        font.family: Style.font.family
+        font.pixelSize: Style.font.body + 2
+        font.bold: true
+      }
+      Text {
+        x: Style.space(30)
+        anchors.verticalCenter: parent.verticalCenter
+        text: list.icon + "  " + list.title
+        color: root.fg
+        font.family: Style.font.family
+        font.pixelSize: Style.font.body
+        font.bold: true
+      }
+      Text {
+        anchors.right: parent.right
+        anchors.rightMargin: Style.space(10)
+        anchors.verticalCenter: parent.verticalCenter
+        text: list.items.length
+        color: root.dim
+        font.family: Style.font.family
+        font.pixelSize: Style.font.bodySmall
+      }
+    }
+    Repeater {
+      model: list.open ? list.items : []
+      delegate: SectionRow {}
+    }
+  }
+
   // ---- The panel ----------------------------------------------------------------
   KeyboardPanel {
     id: panel
@@ -915,66 +984,21 @@ BarWidget {
           SectionLabel { text: "ALL SHORTCUTS" }
           Item { width: 1; height: Style.space(4) }
 
-          // Favorites: starred shortcuts, open unless folded.
-          Column {
-            id: favs
-            visible: root.favorites.length > 0
-            readonly property bool open: root.expanded["fav"] !== false
-            width: column.width
-            Item {
-              width: parent.width
-              height: Style.space(32)
-              Rectangle {
-                anchors.fill: parent
-                radius: Style.space(6)
-                color: favMouse.containsMouse ? Qt.rgba(root.fg.r, root.fg.g, root.fg.b, 0.05) : "transparent"
-              }
-              MouseArea {
-                id: favMouse
-                anchors.fill: parent
-                hoverEnabled: true
-                cursorShape: Qt.PointingHandCursor
-                onClicked: {
-                  var next = Object.assign({}, root.expanded)
-                  next["fav"] = !favs.open
-                  root.expanded = next
-                }
-              }
-              Text {
-                x: Style.space(10)
-                width: Style.space(12)
-                anchors.verticalCenter: parent.verticalCenter
-                text: "›"
-                rotation: favs.open ? 90 : 0
-                Behavior on rotation { NumberAnimation { duration: 160 } }
-                color: root.dim
-                font.family: Style.font.family
-                font.pixelSize: Style.font.body + 2
-                font.bold: true
-              }
-              Text {
-                x: Style.space(30)
-                anchors.verticalCenter: parent.verticalCenter
-                text: "󰓎  Favorites"
-                color: root.fg
-                font.family: Style.font.family
-                font.pixelSize: Style.font.body
-                font.bold: true
-              }
-              Text {
-                anchors.right: parent.right
-                anchors.rightMargin: Style.space(10)
-                anchors.verticalCenter: parent.verticalCenter
-                text: root.favorites.length
-                color: root.dim
-                font.family: Style.font.family
-                font.pixelSize: Style.font.bodySmall
-              }
-            }
-            Repeater {
-              model: favs.open ? root.favorites : []
-              delegate: SectionRow {}
-            }
+          // Starred shortcuts: your own cheat sheet. Open unless folded.
+          ListSection {
+            key: "fav"
+            icon: "󰓎"
+            title: "Favorites"
+            items: root.favorites
+          }
+
+          // Shortcuts in practice, next check-in first. Folded by default.
+          ListSection {
+            key: "practice"
+            icon: "󰥔"
+            title: "In practice"
+            items: root.inPractice
+            openByDefault: false
           }
 
           Repeater {

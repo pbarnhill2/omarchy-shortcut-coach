@@ -50,7 +50,8 @@ again.
   aside and comes back for quick check-ins.
 
 Star (☆) any shortcut to keep it in **Favorites**, your own cheat sheet at
-the top of the list. Some shortcuts have an ⓘ that opens a fuller
+the top of the list. Shortcuts you're practicing collect in **In practice**,
+next check-in first. Some shortcuts have an ⓘ that opens a fuller
 explanation, for ideas a one-line tip can't carry (the scratchpad, groups,
 pop-out versus float).
 
