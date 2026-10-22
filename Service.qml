@@ -344,6 +344,8 @@ Item {
 
         // Front: the question.
         front: Face {
+          // Only the side facing you takes clicks.
+          enabled: !root.revealed
           Column {
             anchors.fill: parent
             anchors.margins: Style.space(20)
@@ -386,6 +388,7 @@ Item {
 
         // Back: the answer, and how it went.
         back: Face {
+          enabled: root.revealed
           Column {
             anchors.fill: parent
             anchors.margins: Style.space(20)
