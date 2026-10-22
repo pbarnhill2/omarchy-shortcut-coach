@@ -279,8 +279,8 @@ BarWidget {
   }
 
   function applyTab() {
-    var items = tab === "review" ? reviewItems : learnItems
-    syncUpNext(items.filter(function(i) { return !root.pendingIds[i.id] }))
+    syncUpNext(learnItems.filter(function(i) { return !root.pendingIds[i.id] }))
+    if (tab === "review" && reviewResult === "") nextReview()
   }
 
   function syncUpNext(items) {
@@ -527,14 +527,15 @@ BarWidget {
     property string keys: ""
     property bool muted: false
     property bool small: false
-    spacing: Style.space(small ? 3 : 4)
+    property bool big: false
+    spacing: Style.space(small ? 3 : big ? 6 : 4)
     Repeater {
       model: root.keyCaps(keysRow.keys)
       delegate: Rectangle {
         required property string modelData
-        width: capLabel.implicitWidth + Style.space(keysRow.small ? 8 : 10)
-        height: Style.space(keysRow.small ? 18 : 20)
-        radius: Style.space(4)
+        width: capLabel.implicitWidth + Style.space(keysRow.small ? 8 : keysRow.big ? 18 : 10)
+        height: Style.space(keysRow.small ? 18 : keysRow.big ? 34 : 20)
+        radius: Style.space(keysRow.big ? 6 : 4)
         color: Qt.rgba(root.accent.r, root.accent.g, root.accent.b, keysRow.muted ? 0.08 : 0.16)
         // A slightly firmer bottom edge reads as a key.
         Rectangle {
@@ -552,7 +553,7 @@ BarWidget {
           text: modelData
           color: keysRow.muted ? root.dim : root.accent
           font.family: Style.font.family
-          font.pixelSize: keysRow.small ? Style.font.caption : Style.font.bodySmall
+          font.pixelSize: keysRow.small ? Style.font.caption : keysRow.big ? Style.font.body + 6 : Style.font.bodySmall
           font.bold: true
         }
       }
@@ -1196,6 +1197,96 @@ BarWidget {
     }
   }
 
+  // ---- Review: one flash card at a time ---------------------------------------
+  // The card keeps showing what you graded until it moves on, so the answer
+  // and the result stay put while the save happens.
+  property var reviewCard: null
+  property bool reviewFlipped: false
+  property string reviewResult: ""
+  readonly property var reviewQueue: reviewItems.filter(function(i) { return !root.pendingIds[i.id] })
+
+  function nextReview() {
+    reviewResult = ""
+    reviewFlipped = false
+    reviewCard = reviewQueue.length > 0 ? reviewQueue[0] : null
+  }
+
+  onReviewQueueChanged: if (!reviewCard || (reviewResult === "" && reviewQueue.every(function(i) { return i.id !== reviewCard.id }))) nextReview()
+
+  function gradeReview(pass) {
+    if (!reviewCard || reviewResult !== "") return
+    var card = reviewCard
+    if (pass) {
+      var p = reviewGotIt.mapToItem(confettiLayer, reviewGotIt.width / 2, reviewGotIt.height / 2)
+      root.burst(confettiLayer, p.x, p.y)
+    }
+    reviewResult = pass ? (card.passIn === "locked in" ? "🔒  Locked in. That one's yours."
+                                                       : "Nice. Back in " + card.passIn + ".")
+                        : "No problem. Back in " + card.missIn + "."
+    root.commit(["checkin", card.id, pass ? "pass" : "fail"], "")
+    reviewAdvance.restart()
+  }
+
+  Timer {
+    id: reviewAdvance
+    interval: 1500
+    onTriggered: root.nextReview()
+  }
+
+  component ReviewButton: Rectangle {
+    id: rb
+    property string label: ""
+    property string sub: ""
+    property bool primary: false
+    signal clicked()
+    width: Math.max(Style.space(150), rbRow.implicitWidth + Style.space(32))
+    height: Style.space(40)
+    radius: Style.space(8)
+    color: primary ? (rbMouse.containsMouse ? Qt.lighter(root.accent, 1.12) : root.accent)
+                   : (rbMouse.containsMouse ? Qt.rgba(root.fg.r, root.fg.g, root.fg.b, 0.10) : "transparent")
+    border.color: primary ? root.accent : Qt.rgba(root.fg.r, root.fg.g, root.fg.b, 0.35)
+    border.width: Math.max(1, Style.space(1))
+    Behavior on color { ColorAnimation { duration: 120 } }
+    Row {
+      id: rbRow
+      anchors.centerIn: parent
+      spacing: Style.space(8)
+      Text {
+        anchors.verticalCenter: parent.verticalCenter
+        text: rb.label
+        color: rb.primary ? Commons.Color.popups.background : root.fg
+        font.family: Style.font.family
+        font.pixelSize: Style.font.body
+        font.bold: true
+      }
+      Text {
+        visible: rb.sub !== ""
+        anchors.verticalCenter: parent.verticalCenter
+        text: rb.sub
+        color: rb.primary ? Qt.rgba(Commons.Color.popups.background.r, Commons.Color.popups.background.g,
+                                    Commons.Color.popups.background.b, 0.7) : root.dim
+        font.family: Style.font.family
+        font.pixelSize: Style.font.caption
+      }
+    }
+    MouseArea {
+      id: rbMouse
+      anchors.fill: parent
+      hoverEnabled: true
+      cursorShape: Qt.PointingHandCursor
+      onClicked: rb.clicked()
+    }
+  }
+
+  component ReviewFace: Rectangle {
+    anchors.fill: parent
+    radius: Style.space(12)
+    color: Qt.rgba(root.fg.r, root.fg.g, root.fg.b, 0.035)
+    border.color: Qt.rgba(root.accent.r, root.accent.g, root.accent.b, 0.55)
+    border.width: Math.max(1, Style.space(1.5))
+    antialiasing: true
+  }
+
   // ---- The panel ----------------------------------------------------------------
   KeyboardPanel {
     id: panel
@@ -1395,8 +1486,176 @@ BarWidget {
           width: parent.width
           height: root.batch * root.rowHeight
 
+          // Review: one flash card at a time.
+          Item {
+            id: reviewArea
+            anchors.fill: parent
+            anchors.margins: Style.space(8)
+            visible: root.tab === "review"
+
+            Flipable {
+              id: reviewFlip
+              anchors.fill: parent
+              visible: !!root.reviewCard
+              transform: Rotation {
+                origin.x: reviewFlip.width / 2
+                origin.y: reviewFlip.height / 2
+                axis { x: 0; y: 1; z: 0 }
+                angle: root.reviewFlipped ? 180 : 0
+                Behavior on angle { NumberAnimation { duration: 380; easing.type: Easing.InOutCubic } }
+              }
+
+              front: ReviewFace {
+                // Only the side facing you takes clicks.
+                enabled: !root.reviewFlipped
+                Column {
+                  anchors.left: parent.left
+                  anchors.right: parent.right
+                  anchors.top: parent.top
+                  anchors.margins: Style.space(24)
+                  spacing: Style.space(12)
+                  Text {
+                    text: "CARD 1 OF " + root.reviewQueue.length + (root.reviewCard ? "  ·  " + root.reviewCard.section : "")
+                    color: root.dim
+                    font.family: Style.font.family
+                    font.pixelSize: Style.font.caption
+                    font.bold: true
+                    font.letterSpacing: 1
+                  }
+                  Item { width: 1; height: Style.space(10) }
+                  Text {
+                    text: "What's the shortcut for…"
+                    color: root.dim
+                    font.family: Style.font.family
+                    font.pixelSize: Style.font.body
+                  }
+                  Text {
+                    width: parent.width
+                    wrapMode: Text.WordWrap
+                    text: root.reviewCard ? root.reviewCard.title : ""
+                    color: root.fg
+                    font.family: Style.font.family
+                    font.pixelSize: Style.font.body + 8
+                    font.bold: true
+                  }
+                  Text {
+                    text: "Think of it, or press it. Then flip the card."
+                    color: root.dim
+                    font.family: Style.font.family
+                    font.pixelSize: Style.font.bodySmall
+                  }
+                }
+                ReviewButton {
+                  anchors.horizontalCenter: parent.horizontalCenter
+                  anchors.bottom: parent.bottom
+                  anchors.bottomMargin: Style.space(24)
+                  label: "Show answer"
+                  primary: true
+                  onClicked: root.reviewFlipped = true
+                }
+              }
+
+              back: ReviewFace {
+                enabled: root.reviewFlipped
+                Column {
+                  anchors.left: parent.left
+                  anchors.right: parent.right
+                  anchors.top: parent.top
+                  anchors.margins: Style.space(24)
+                  spacing: Style.space(12)
+                  Text {
+                    width: parent.width
+                    elide: Text.ElideRight
+                    text: root.reviewCard ? root.reviewCard.title : ""
+                    color: root.dim
+                    font.family: Style.font.family
+                    font.pixelSize: Style.font.body
+                  }
+                  Keys { big: true; keys: root.reviewCard ? root.reviewCard.keys : "" }
+                  Repeater {
+                    model: root.reviewCard && root.reviewCard.variants ? root.reviewCard.variants.slice(0, 2) : []
+                    delegate: Row {
+                      required property var modelData
+                      spacing: Style.space(8)
+                      Keys { keys: modelData.keys; anchors.verticalCenter: parent.verticalCenter }
+                      Text {
+                        anchors.verticalCenter: parent.verticalCenter
+                        text: modelData.label
+                        color: root.dim
+                        font.family: Style.font.family
+                        font.pixelSize: Style.font.bodySmall
+                      }
+                    }
+                  }
+                  Text {
+                    width: parent.width
+                    wrapMode: Text.WordWrap
+                    text: root.reviewCard ? (root.reviewCard.why || "") : ""
+                    color: Qt.rgba(root.fg.r, root.fg.g, root.fg.b, 0.82)
+                    font.family: Style.font.family
+                    font.pixelSize: Style.font.bodySmall
+                  }
+                }
+                // Grade it, or the result, in the same fixed spot.
+                Row {
+                  anchors.horizontalCenter: parent.horizontalCenter
+                  anchors.bottom: parent.bottom
+                  anchors.bottomMargin: Style.space(24)
+                  spacing: Style.space(12)
+                  visible: root.reviewResult === ""
+                  ReviewButton {
+                    label: "Missed it"
+                    sub: root.reviewCard ? root.reviewCard.missIn : ""
+                    onClicked: root.gradeReview(false)
+                  }
+                  ReviewButton {
+                    id: reviewGotIt
+                    label: "Got it"
+                    sub: root.reviewCard ? root.reviewCard.passIn : ""
+                    primary: true
+                    onClicked: root.gradeReview(true)
+                  }
+                }
+                Text {
+                  visible: root.reviewResult !== ""
+                  anchors.horizontalCenter: parent.horizontalCenter
+                  anchors.bottom: parent.bottom
+                  anchors.bottomMargin: Style.space(34)
+                  text: root.reviewResult
+                  color: root.accent
+                  font.family: Style.font.family
+                  font.pixelSize: Style.font.body + 1
+                  font.bold: true
+                }
+              }
+            }
+
+            // Nothing due.
+            Column {
+              visible: !root.reviewCard
+              anchors.centerIn: parent
+              spacing: Style.space(8)
+              Text {
+                anchors.horizontalCenter: parent.horizontalCenter
+                text: "All caught up"
+                color: root.fg
+                font.family: Style.font.family
+                font.pixelSize: Style.font.body + 4
+                font.bold: true
+              }
+              Text {
+                anchors.horizontalCenter: parent.horizontalCenter
+                text: "Shortcuts in practice come back here when they're due."
+                color: root.dim
+                font.family: Style.font.family
+                font.pixelSize: Style.font.bodySmall
+              }
+            }
+          }
+
           ListView {
             id: upNext
+            visible: root.tab === "learn"
             width: parent.width
             anchors.fill: parent
             interactive: false
@@ -1417,7 +1676,7 @@ BarWidget {
           }
 
           Text {
-            visible: upNextModel.count === 0
+            visible: root.tab === "learn" && upNextModel.count === 0
             anchors.centerIn: parent
             width: parent.width
             horizontalAlignment: Text.AlignHCenter
