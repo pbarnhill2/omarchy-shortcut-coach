@@ -233,11 +233,15 @@ def progress(s):
     by_id = {i["id"]: i for i in items}
     favorites = [by_id[f] for f in s["favorites"] if f in by_id]
     ordered = [i for sec in sections for i in sec["items"] if not i["mastered"]]
-    up_next = [i for i in ordered if i["checkIn"]] + [i for i in ordered if not i["practicing"]]
+    # New lessons and due reviews are separate queues, so reviews never
+    # block learning something new.
+    up_next = [i for i in ordered if not i["practicing"]]
+    reviews = sorted((i for i in ordered if i["checkIn"]), key=lambda i: s["practice"][i["id"]]["due"])
     mastered = sum(1 for i in items if i["mastered"])
     return {
         "batch": s["batch"],
         "upNext": up_next,
+        "reviews": reviews,
         "favorites": favorites,
         "sections": sections,
         "mastered": mastered,

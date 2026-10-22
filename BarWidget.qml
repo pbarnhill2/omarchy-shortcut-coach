@@ -266,6 +266,23 @@ BarWidget {
   // the list animates only what changed.
   ListModel { id: upNextModel }
 
+  // Two queues in one list: new lessons (learn) and due check-ins (review).
+  property string tab: "learn"
+  property var learnItems: []
+  property var reviewItems: []
+
+  function showTab(name) {
+    if (tab === name) return
+    tab = name
+    hint = ""
+    applyTab()
+  }
+
+  function applyTab() {
+    var items = tab === "review" ? reviewItems : learnItems
+    syncUpNext(items.filter(function(i) { return !root.pendingIds[i.id] }))
+  }
+
   function syncUpNext(items) {
     var want = items.slice(0, root.batch)
     var ids = want.map(function(i) { return i.id })
@@ -334,7 +351,9 @@ BarWidget {
         root.setupSeen = !!data.setupSeen
         if (data.setup) root.setupKeys = data.setup
         if (root.showing && !root.setupSeen) root.showSetup = true
-        root.syncUpNext((data.upNext || []).filter(function(i) { return !root.pendingIds[i.id] }))
+        root.learnItems = data.upNext || []
+        root.reviewItems = data.reviews || []
+        root.applyTab()
         if (root.showing) {
           if (root.complete && !wasComplete) root.celebrate("🏆  Shortcut Master!")
           else if (finished !== "") root.celebrate("🎉  " + finished + " complete!")
@@ -1314,41 +1333,101 @@ BarWidget {
         }
 
         Item { width: 1; height: Style.space(14) }
-        SectionLabel { text: "UP NEXT"; visible: upNextModel.count > 0 }
-        Item { width: 1; height: Style.space(4); visible: upNextModel.count > 0 }
-
-        ListView {
-          id: upNext
-          width: parent.width
-          // Six slots, always: the list never changes height as rows come and go.
-          height: (upNextModel.count > 0 ? root.batch : 0) * root.rowHeight
-          interactive: false
-          model: upNextModel
-          delegate: UpNextRow {}
-          remove: Transition {
-            NumberAnimation { property: "opacity"; to: 0; duration: 220; easing.type: Easing.InQuad }
-          }
-          add: Transition {
-            NumberAnimation { property: "opacity"; from: 0; to: 1; duration: 320; easing.type: Easing.OutQuad }
-          }
-          displaced: Transition {
-            NumberAnimation { properties: "y"; duration: 280; easing.type: Easing.OutCubic }
-          }
-          move: Transition {
-            NumberAnimation { properties: "y"; duration: 280; easing.type: Easing.OutCubic }
+        // Tabs: new lessons, and check-ins that are due.
+        Row {
+          x: Style.space(8)
+          height: Style.space(22)
+          spacing: Style.space(18)
+          Repeater {
+            model: [
+              { key: "learn", label: "UP NEXT", count: 0 },
+              { key: "review", label: "REVIEW", count: root.reviewItems.length }
+            ]
+            delegate: Item {
+              required property var modelData
+              readonly property bool active: root.tab === modelData.key
+              width: tabLabel.implicitWidth
+              height: parent.height
+              Text {
+                id: tabLabel
+                anchors.verticalCenter: parent.verticalCenter
+                text: modelData.label + (modelData.count > 0 ? "  " + modelData.count : "")
+                color: parent.active ? root.fg : (tabMouse.containsMouse ? root.fg : root.dim)
+                font.family: Style.font.family
+                font.pixelSize: Style.font.caption
+                font.bold: true
+                font.letterSpacing: 1
+              }
+              // A dot when reviews are waiting.
+              Rectangle {
+                visible: modelData.count > 0
+                width: Style.space(6); height: width; radius: width / 2
+                color: root.accent
+                anchors.left: tabLabel.right
+                anchors.leftMargin: Style.space(4)
+                anchors.top: tabLabel.top
+              }
+              Rectangle {
+                anchors.bottom: parent.bottom
+                width: parent.width
+                height: Math.max(1, Style.space(2))
+                radius: height / 2
+                color: root.accent
+                opacity: parent.active ? 1 : 0
+                Behavior on opacity { NumberAnimation { duration: 150 } }
+              }
+              MouseArea {
+                id: tabMouse
+                anchors.fill: parent
+                anchors.margins: -Style.space(6)
+                hoverEnabled: true
+                cursorShape: Qt.PointingHandCursor
+                onClicked: root.showTab(modelData.key)
+              }
+            }
           }
         }
+        Item { width: 1; height: Style.space(6) }
 
-        Text {
-          visible: upNextModel.count === 0
+        // Six slots, always, on both tabs: the list never changes height as
+        // rows come and go or as you switch tabs.
+        Item {
           width: parent.width
-          horizontalAlignment: Text.AlignHCenter
-          topPadding: Style.space(14)
-          bottomPadding: Style.space(14)
-          text: root.complete ? "Every shortcut mastered. Nicely done." : "All caught up. Check-ins will bring a few back."
-          color: root.dim
-          font.family: Style.font.family
-          font.pixelSize: Style.font.body
+          height: root.batch * root.rowHeight
+
+          ListView {
+            id: upNext
+            width: parent.width
+            anchors.fill: parent
+            interactive: false
+            model: upNextModel
+            delegate: UpNextRow {}
+            remove: Transition {
+              NumberAnimation { property: "opacity"; to: 0; duration: 220; easing.type: Easing.InQuad }
+            }
+            add: Transition {
+              NumberAnimation { property: "opacity"; from: 0; to: 1; duration: 320; easing.type: Easing.OutQuad }
+            }
+            displaced: Transition {
+              NumberAnimation { properties: "y"; duration: 280; easing.type: Easing.OutCubic }
+            }
+            move: Transition {
+              NumberAnimation { properties: "y"; duration: 280; easing.type: Easing.OutCubic }
+            }
+          }
+
+          Text {
+            visible: upNextModel.count === 0
+            anchors.centerIn: parent
+            width: parent.width
+            horizontalAlignment: Text.AlignHCenter
+            text: root.tab === "review" ? "Nothing to review right now. Flash cards come back on their own."
+                : root.complete ? "Every shortcut mastered. Nicely done."
+                : "No new shortcuts left. Keep going in Review."
+            color: root.dim
+            font.family: Style.font.family
+            font.pixelSize: Style.font.body
+          }
         }
 
         Item { width: 1; height: Style.space(14) }

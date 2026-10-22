@@ -42,7 +42,9 @@ again.
 
 ## How it works
 
-**Up next** shows six shortcuts, Essentials first. Each row has two choices:
+**Up next** shows six new shortcuts, Essentials first. Check-ins that are due
+wait in their own **Review** tab, so reviews never block learning something
+new. Each row has two choices:
 
 - **☐ Checkbox:** you know it. It's marked as known for good. An Undo line
   appears for a few seconds in case it was a slip.
