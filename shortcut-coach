@@ -12,6 +12,7 @@
   shortcut-coach due [--json]            the practice shortcut due for a check-in, if any
   shortcut-coach fav ID / unfav ID       star or unstar a shortcut (your favorites list)
   shortcut-coach pause on|off            pause or resume check-ins
+  shortcut-coach window on|off           show the coach as a desktop window, or in the bar
   shortcut-coach intro-seen              don't explain practice again
   shortcut-coach setup-seen              don't show the practice-desktop card again
   shortcut-coach welcome                 show the first-time cards again (keeps progress)
@@ -75,6 +76,7 @@ def load_state():
     s.setdefault("today", {"date": "", "count": 0})
     s.setdefault("favorites", [])
     s.setdefault("setupSeen", False)
+    s.setdefault("window", False)
     s.pop("snoozed", None)
     return s
 
@@ -245,6 +247,7 @@ def progress(s):
         "paused": s["paused"],
         "introSeen": s["introSeen"],
         "setupSeen": s["setupSeen"],
+        "window": s["window"],
         "setup": setup_keys(),
         "steps": STEPS,
     }
@@ -387,6 +390,11 @@ def main(argv):
 
     if cmd == "pause" and args and args[0] in ("on", "off"):
         s["paused"] = args[0] == "on"
+        save_state(s)
+        return 0
+
+    if cmd == "window" and args and args[0] in ("on", "off"):
+        s["window"] = args[0] == "on"
         save_state(s)
         return 0
 

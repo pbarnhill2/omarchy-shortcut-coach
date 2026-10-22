@@ -2,7 +2,7 @@
   "schemaVersion": 1,
   "id": "pbarnhill.shortcut-coach",
   "name": "Shortcut Coach",
-  "version": "0.15.0",
+  "version": "0.16.0",
   "author": "Patrick Barnhill",
   "license": "MIT",
   "description": "Learn Omarchy shortcuts a few at a time: a short checklist in the bar, plus spaced check-ins (10m, 1h, 1d, 4d, 2w, 6w) for the ones you're unsure of.",

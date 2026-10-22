@@ -29,6 +29,10 @@ BarWidget {
   readonly property var cliEnv: preview ? ({ "SHORTCUT_COACH_STATE": statePath }) : ({})
 
   property bool opened: false
+  // The coach as its own desktop window instead of the bar popup.
+  property bool detached: false
+  readonly property bool showing: opened || detached
+  property bool windowRestored: false
   property bool popoutSwitchClosing: false
   property var sections: []
   property var favorites: []
@@ -99,7 +103,33 @@ BarWidget {
     close()
     Qt.callLater(function() { root.popoutSwitchClosing = false })
   }
-  function toggle() { opened ? close() : open() }
+  function toggle() {
+    // As a window, the bar icon takes you to it.
+    if (detached) { focusWindow(); return }
+    opened ? close() : open()
+  }
+
+  // Move the coach between the bar popup and a desktop window.
+  function setDetached(on) {
+    if (on === detached) return
+    hint = ""
+    if (on) {
+      opened = false
+      detached = true
+      coachWindow.visible = true
+      Qt.callLater(focusWindow)
+    } else {
+      detached = false
+      coachWindow.visible = false
+      open()
+    }
+    // Remembered, so the window comes back after a restart.
+    run(["window", on ? "on" : "off"])
+  }
+
+  function focusWindow() {
+    Quickshell.execDetached(["hyprctl", "dispatch", 'hl.dsp.focus({ window = "title:^Shortcut Coach$" })'])
+  }
 
   function refresh() {
     listProc.running = false
@@ -295,11 +325,17 @@ BarWidget {
         root.practicing = data.practicing || 0
         root.paused = !!data.paused
         root.introSeen = !!data.introSeen
+        // Restore the desktop window after a restart.
+        if (data.window && !root.detached && !root.windowRestored) {
+          root.windowRestored = true
+          root.detached = true
+          coachWindow.visible = true
+        }
         root.setupSeen = !!data.setupSeen
         if (data.setup) root.setupKeys = data.setup
-        if (root.opened && !root.setupSeen) root.showSetup = true
+        if (root.showing && !root.setupSeen) root.showSetup = true
         root.syncUpNext((data.upNext || []).filter(function(i) { return !root.pendingIds[i.id] }))
-        if (root.opened) {
+        if (root.showing) {
           if (root.complete && !wasComplete) root.celebrate("🏆  Shortcut Master!")
           else if (finished !== "") root.celebrate("🎉  " + finished + " complete!")
         }
@@ -323,7 +359,7 @@ BarWidget {
     bar: root.bar
     text: "󰑴"
     slotSize: Style.bar.statusSlot
-    tooltipText: root.opened ? "" : "Shortcut Coach · " + root.mastered + " of " + root.total + " mastered"
+    tooltipText: root.opened ? "" : (root.detached ? "Shortcut Coach (open as a window) · " : "Shortcut Coach · ") + root.mastered + " of " + root.total + " mastered"
                                   + (root.practicing > 0 ? " · " + root.practicing + " in practice" : "")
     onPressed: function(b) {
       if (b === Qt.MiddleButton) root.refresh()
@@ -1145,7 +1181,7 @@ BarWidget {
     anchorItem: button
     owner: root
     bar: root.bar
-    open: root.opened
+    open: root.opened && !root.detached
     focusTarget: keyCatcher
     contentWidth: panel.fittedContentWidth(Style.space(660))
     contentHeight: panel.fittedContentHeight(column.implicitHeight + Style.space(42), Style.space(960))
@@ -1159,623 +1195,670 @@ BarWidget {
         else if (root.showIntro) root.showIntro = false
         else root.close()
       }
+    }
+  }
 
-      Flickable {
-        id: scroll
-        anchors.left: parent.left
-        anchors.right: parent.right
-        anchors.top: parent.top
-        anchors.bottom: statusLine.top
-        contentWidth: width
-        contentHeight: column.implicitHeight
-        clip: true
-        boundsBehavior: Flickable.StopAtBounds
-        interactive: contentHeight > height
+  // The coach itself: inside the bar popup, or in its own desktop window.
+  // One item, moved between the two, so everything keeps working in both.
+  Item {
+    id: coachView
+    parent: root.detached ? coachWindow.contentItem : keyCatcher
+    // In a window: a comfortable reading width, centered, however wide the tile.
+    readonly property real pad: root.detached ? Style.space(16) : 0
+    width: root.detached ? Math.min(parent.width - pad * 2, Style.space(760)) : parent.width
+    height: parent.height - pad * 2
+    x: root.detached ? (parent.width - width) / 2 : 0
+    y: pad
 
-        Column {
-          id: column
-          width: scroll.width
-          spacing: 0
+    Flickable {
+      id: scroll
+      anchors.left: parent.left
+      anchors.right: parent.right
+      anchors.top: parent.top
+      anchors.bottom: statusLine.top
+      contentWidth: width
+      contentHeight: column.implicitHeight
+      clip: true
+      boundsBehavior: Flickable.StopAtBounds
+      interactive: contentHeight > height
 
-          // Header: title, progress count, and the progress bar.
-          Item {
-            width: parent.width
-            height: Style.space(30)
-            Text {
-              id: heading
-              x: Style.space(8)
-              anchors.verticalCenter: parent.verticalCenter
-              text: root.complete ? "Shortcut Master 🏆" : "Shortcut Coach"
-              color: root.fg
-              font.family: Style.font.family
-              font.pixelSize: Style.font.body + 2
-              font.bold: true
-            }
-            // Practice desktop setup, again.
-            Text {
-              x: heading.x + heading.width + Style.space(10)
-              anchors.verticalCenter: heading.verticalCenter
-              text: "󰋽"
-              color: setupMouse.containsMouse ? root.accent : root.dim
-              font.family: Style.font.family
-              font.pixelSize: Style.font.body
-              MouseArea {
-                id: setupMouse
-                anchors.fill: parent
-                anchors.margins: -Style.space(5)
-                hoverEnabled: true
-                cursorShape: Qt.PointingHandCursor
-                onClicked: { root.hint = ""; root.showSetup = true }
-                onContainsMouseChanged: root.hint = containsMouse ? "Set up a practice desktop" : (root.hint === "Set up a practice desktop" ? "" : root.hint)
-              }
-            }
-            Text {
-              anchors.right: parent.right
-              anchors.rightMargin: Style.space(8)
-              anchors.baseline: heading.baseline
-              text: root.mastered + " of " + root.total + " mastered"
-              color: root.dim
-              font.family: Style.font.family
-              font.pixelSize: Style.font.bodySmall
-            }
-          }
-          Item {
-            width: parent.width
-            height: Style.space(16)
-            Rectangle {
-              x: Style.space(8)
-              width: parent.width - Style.space(16)
-              anchors.verticalCenter: parent.verticalCenter
-              height: Style.space(6)
-              radius: height / 2
-              color: root.faint
-              Rectangle {
-                height: parent.height
-                radius: parent.radius
-                color: root.accent
-                width: root.total > 0 ? parent.width * root.mastered / root.total : 0
-                Behavior on width { NumberAnimation { duration: 600; easing.type: Easing.OutCubic } }
-              }
-            }
-          }
+      Column {
+        id: column
+        width: scroll.width
+        spacing: 0
 
-          Item { width: 1; height: Style.space(14) }
-          SectionLabel { text: "UP NEXT"; visible: upNextModel.count > 0 }
-          Item { width: 1; height: Style.space(4); visible: upNextModel.count > 0 }
-
-          ListView {
-            id: upNext
-            width: parent.width
-            // Six slots, always: the list never changes height as rows come and go.
-            height: (upNextModel.count > 0 ? root.batch : 0) * root.rowHeight
-            interactive: false
-            model: upNextModel
-            delegate: UpNextRow {}
-            remove: Transition {
-              NumberAnimation { property: "opacity"; to: 0; duration: 220; easing.type: Easing.InQuad }
-            }
-            add: Transition {
-              NumberAnimation { property: "opacity"; from: 0; to: 1; duration: 320; easing.type: Easing.OutQuad }
-            }
-            displaced: Transition {
-              NumberAnimation { properties: "y"; duration: 280; easing.type: Easing.OutCubic }
-            }
-            move: Transition {
-              NumberAnimation { properties: "y"; duration: 280; easing.type: Easing.OutCubic }
-            }
-          }
-
+        // Header: title, progress count, and the progress bar.
+        Item {
+          width: parent.width
+          height: Style.space(30)
           Text {
-            visible: upNextModel.count === 0
-            width: parent.width
-            horizontalAlignment: Text.AlignHCenter
-            topPadding: Style.space(14)
-            bottomPadding: Style.space(14)
-            text: root.complete ? "Every shortcut mastered. Nicely done." : "All caught up. Check-ins will bring a few back."
-            color: root.dim
+            id: heading
+            x: Style.space(8)
+            anchors.verticalCenter: parent.verticalCenter
+            text: root.complete ? "Shortcut Master 🏆" : "Shortcut Coach"
+            color: root.fg
+            font.family: Style.font.family
+            font.pixelSize: Style.font.body + 2
+            font.bold: true
+          }
+          // Practice desktop setup, again.
+          Text {
+            x: heading.x + heading.width + Style.space(10)
+            anchors.verticalCenter: heading.verticalCenter
+            text: "󰋽"
+            color: setupMouse.containsMouse ? root.accent : root.dim
             font.family: Style.font.family
             font.pixelSize: Style.font.body
-          }
-
-          Item { width: 1; height: Style.space(14) }
-          SectionLabel { text: "ALL SHORTCUTS" }
-          Item { width: 1; height: Style.space(4) }
-
-          // Starred shortcuts: your own cheat sheet. Open unless folded.
-          ListSection {
-            key: "fav"
-            icon: "󰓎"
-            title: "Favorites"
-            items: root.favorites
-          }
-
-          // Shortcuts in practice, next check-in first. Folded by default.
-          ListSection {
-            id: practiceList
-            key: "practice"
-            icon: "󰥔"
-            title: "In practice"
-            items: root.inPractice
-            openByDefault: false
-          }
-
-          Repeater {
-            model: root.sections
-            delegate: Column {
-              id: section
-              required property var modelData
-              readonly property bool open: !!root.expanded[modelData.level]
-              readonly property bool finished: modelData.done === modelData.total
-              width: column.width
-
-              Item {
-                width: parent.width
-                height: Style.space(32)
-                Rectangle {
-                  anchors.fill: parent
-                  radius: Style.space(6)
-                  color: headerMouse.containsMouse ? Qt.rgba(root.fg.r, root.fg.g, root.fg.b, 0.05) : "transparent"
-                }
-                MouseArea {
-                  id: headerMouse
-                  anchors.fill: parent
-                  hoverEnabled: true
-                  cursorShape: Qt.PointingHandCursor
-                  onClicked: root.toggleSection(section.modelData.level)
-                }
-                Text {
-                  id: chevron
-                  x: Style.space(10)
-                  width: Style.space(12)
-                  anchors.verticalCenter: parent.verticalCenter
-                  text: "›"
-                  rotation: section.open ? 90 : 0
-                  Behavior on rotation { NumberAnimation { duration: 160 } }
-                  color: root.dim
-                  font.family: Style.font.family
-                  font.pixelSize: Style.font.body + 2
-                  font.bold: true
-                }
-                Text {
-                  x: Style.space(30)
-                  anchors.verticalCenter: parent.verticalCenter
-                  text: (section.modelData.icon ? section.modelData.icon + "  " : "") + section.modelData.name
-                  color: section.finished ? root.accent : root.fg
-                  font.family: Style.font.family
-                  font.pixelSize: Style.font.body
-                  font.bold: true
-                }
-                // Tick the whole section, for shortcuts you already know.
-                Link {
-                  visible: section.open && !section.finished
-                  anchors.right: count.left
-                  anchors.rightMargin: Style.space(16)
-                  anchors.verticalCenter: parent.verticalCenter
-                  text: "I know these"
-                  font.pixelSize: Style.font.caption
-                  onClicked: root.run(["done-section", String(section.modelData.level)])
-                }
-                Text {
-                  id: count
-                  anchors.right: parent.right
-                  anchors.rightMargin: Style.space(10)
-                  anchors.verticalCenter: parent.verticalCenter
-                  width: Style.space(44)
-                  horizontalAlignment: Text.AlignRight
-                  text: section.finished ? "✓ " + section.modelData.total : section.modelData.done + "/" + section.modelData.total
-                  color: section.finished ? root.accent : root.dim
-                  font.family: Style.font.family
-                  font.pixelSize: Style.font.bodySmall
-                  font.bold: section.finished
-                }
-              }
-
-              Repeater {
-                model: section.open ? section.modelData.items : []
-                delegate: SectionRow {}
-              }
+            MouseArea {
+              id: setupMouse
+              anchors.fill: parent
+              anchors.margins: -Style.space(5)
+              hoverEnabled: true
+              cursorShape: Qt.PointingHandCursor
+              onClicked: { root.hint = ""; root.showSetup = true }
+              onContainsMouseChanged: root.hint = containsMouse ? "Set up a practice desktop" : (root.hint === "Set up a practice desktop" ? "" : root.hint)
             }
           }
-
+          // Pop the coach out as a desktop window, or bring it back to the bar.
+          Text {
+            id: windowToggle
+            anchors.right: masteredCount.left
+            anchors.rightMargin: Style.space(14)
+            anchors.verticalCenter: heading.verticalCenter
+            text: root.detached ? "󰁝" : "󰏌"
+            color: windowMouse.containsMouse ? root.accent : root.dim
+            font.family: Style.font.family
+            font.pixelSize: Style.font.body + 1
+            readonly property string hintText: root.detached ? "Back to the bar popup" : "Open as a window on your desktop: it tiles like any app"
+            MouseArea {
+              id: windowMouse
+              anchors.fill: parent
+              anchors.margins: -Style.space(6)
+              hoverEnabled: true
+              cursorShape: Qt.PointingHandCursor
+              onClicked: root.setDetached(!root.detached)
+              onContainsMouseChanged: root.hint = containsMouse ? windowToggle.hintText : (root.hint === windowToggle.hintText ? "" : root.hint)
+            }
+          }
+          Text {
+            id: masteredCount
+            anchors.right: parent.right
+            anchors.rightMargin: Style.space(8)
+            anchors.baseline: heading.baseline
+            text: root.mastered + " of " + root.total + " mastered"
+            color: root.dim
+            font.family: Style.font.family
+            font.pixelSize: Style.font.bodySmall
+          }
         }
-      }
-
-      // Status line, pinned under the scrolling content at a fixed height,
-      // so hints and Undo never move anything and are always in view.
-      Item {
-        id: statusLine
-        anchors.left: parent.left
-        anchors.right: parent.right
-        anchors.bottom: parent.bottom
-        height: Style.space(42)
-        Rectangle { x: Style.space(8); width: parent.width - Style.space(16); height: 1; color: root.faint }
         Item {
-          y: Style.space(4)
           width: parent.width
-          height: Style.space(38)
-
-                // What the hovered control does.
-                Text {
-                  visible: root.hint !== ""
-                  x: Style.space(8)
-                  width: parent.width - Style.space(16)
-                  anchors.verticalCenter: parent.verticalCenter
-                  elide: Text.ElideRight
-                  text: root.hint
-                  color: root.accent
-                  font.family: Style.font.family
-                  font.pixelSize: Style.font.bodySmall
-                }
-
-                // Undo for the last "know it", in case it was a slip.
-                Item {
-                  anchors.fill: parent
-                  visible: root.hint === "" && root.undoTitle !== ""
-                  Text {
-                    x: Style.space(8)
-                    width: undoLink.x - x - Style.space(12)
-                    anchors.verticalCenter: parent.verticalCenter
-                    elide: Text.ElideRight
-                    text: "✓ Marked “" + root.undoTitle + "” as known"
-                    color: root.dim
-                    font.family: Style.font.family
-                    font.pixelSize: Style.font.bodySmall
-                  }
-                  Link {
-                    id: undoLink
-                    anchors.right: parent.right
-                    anchors.rightMargin: Style.space(10)
-                    anchors.verticalCenter: parent.verticalCenter
-                    text: "Undo"
-                    strong: true
-                    onClicked: {
-                      if (!root.undoArgs) return
-                      root.run(root.undoArgs)
-                      root.undoTitle = ""
-                    }
-                  }
-                }
-
-                // Practice status, and pause for meetings.
-                Item {
-                  anchors.fill: parent
-                  visible: root.hint === "" && root.undoTitle === "" && (root.practicing > 0 || root.paused)
-                  Text {
-                    x: Style.space(8)
-                    anchors.verticalCenter: parent.verticalCenter
-                    text: "󰥔 " + root.practicing + " in practice · check-ins " + (root.paused ? "paused" : "on")
-                    color: root.dim
-                    font.family: Style.font.family
-                    font.pixelSize: Style.font.bodySmall
-                  }
-                  Link {
-                    anchors.right: parent.right
-                    anchors.rightMargin: Style.space(10)
-                    anchors.verticalCenter: parent.verticalCenter
-                    text: root.paused ? "Resume" : "Pause"
-                    onClicked: root.run(["pause", root.paused ? "off" : "on"])
-                  }
-                }
-              }
-
+          height: Style.space(16)
+          Rectangle {
+            x: Style.space(8)
+            width: parent.width - Style.space(16)
+            anchors.verticalCenter: parent.verticalCenter
+            height: Style.space(6)
+            radius: height / 2
+            color: root.faint
+            Rectangle {
+              height: parent.height
+              radius: parent.radius
+              color: root.accent
+              width: root.total > 0 ? parent.width * root.mastered / root.total : 0
+              Behavior on width { NumberAnimation { duration: 600; easing.type: Easing.OutCubic } }
+            }
+          }
         }
 
-      // Section-complete banner, floating over the header.
-      Rectangle {
-        z: 20
-        x: Style.space(4)
-        y: Style.space(2)
-        width: parent.width - Style.space(8)
-        height: Style.space(44)
-        radius: Style.space(8)
-        visible: opacity > 0
-        opacity: root.bannerText !== "" ? 1 : 0
-        Behavior on opacity { NumberAnimation { duration: 220 } }
-        color: Commons.Color.popups.background
-        border.color: root.accent
-        border.width: Math.max(1, Style.space(2))
-        MouseArea { anchors.fill: parent; enabled: parent.visible }
-        Rectangle {
-          anchors.fill: parent
-          radius: parent.radius
-          color: Qt.rgba(root.accent.r, root.accent.g, root.accent.b, 0.16)
+        Item { width: 1; height: Style.space(14) }
+        SectionLabel { text: "UP NEXT"; visible: upNextModel.count > 0 }
+        Item { width: 1; height: Style.space(4); visible: upNextModel.count > 0 }
+
+        ListView {
+          id: upNext
+          width: parent.width
+          // Six slots, always: the list never changes height as rows come and go.
+          height: (upNextModel.count > 0 ? root.batch : 0) * root.rowHeight
+          interactive: false
+          model: upNextModel
+          delegate: UpNextRow {}
+          remove: Transition {
+            NumberAnimation { property: "opacity"; to: 0; duration: 220; easing.type: Easing.InQuad }
+          }
+          add: Transition {
+            NumberAnimation { property: "opacity"; from: 0; to: 1; duration: 320; easing.type: Easing.OutQuad }
+          }
+          displaced: Transition {
+            NumberAnimation { properties: "y"; duration: 280; easing.type: Easing.OutCubic }
+          }
+          move: Transition {
+            NumberAnimation { properties: "y"; duration: 280; easing.type: Easing.OutCubic }
+          }
         }
+
         Text {
-          anchors.centerIn: parent
-          text: root.bannerText
-          color: root.accent
+          visible: upNextModel.count === 0
+          width: parent.width
+          horizontalAlignment: Text.AlignHCenter
+          topPadding: Style.space(14)
+          bottomPadding: Style.space(14)
+          text: root.complete ? "Every shortcut mastered. Nicely done." : "All caught up. Check-ins will bring a few back."
+          color: root.dim
           font.family: Style.font.family
-          font.pixelSize: Style.font.body + 2
-          font.bold: true
-        }
-      }
-
-      // How practice works, the first time someone presses Practice.
-      Rectangle {
-        id: introLayer
-        z: 30
-        anchors.fill: parent
-        visible: opacity > 0
-        opacity: root.showIntro ? 1 : 0
-        Behavior on opacity { NumberAnimation { duration: 200 } }
-        color: Qt.rgba(Commons.Color.popups.background.r, Commons.Color.popups.background.g,
-                       Commons.Color.popups.background.b, 0.88)
-        MouseArea { anchors.fill: parent; enabled: introLayer.visible }
-
-        Rectangle {
-          anchors.centerIn: parent
-          width: parent.width - Style.space(40)
-          height: introText.implicitHeight + Style.space(36)
-          radius: Style.space(10)
-          color: Commons.Color.popups.background
-          border.color: root.accent
-          border.width: Math.max(1, Style.space(2))
-          Column {
-            id: introText
-            x: Style.space(18)
-            y: Style.space(18)
-            width: parent.width - Style.space(36)
-            spacing: Style.space(10)
-            Text {
-              text: "󰥔  How practice works"
-              color: root.accent
-              font.family: Style.font.family
-              font.pixelSize: Style.font.body + 2
-              font.bold: true
-            }
-            Text {
-              width: parent.width
-              wrapMode: Text.WordWrap
-              text: "Try the shortcut once now; it then moves to In practice and comes back as a quick check-in while you work: after 10 minutes, 1 hour, 1 day, 4 days, 2 weeks and 6 weeks."
-              color: root.fg
-              font.family: Style.font.family
-              font.pixelSize: Style.font.bodySmall
-              lineHeight: 1.25
-            }
-            Text {
-              width: parent.width
-              wrapMode: Text.WordWrap
-              text: "Each time you recall a shortcut just as it starts to fade, the memory lasts longer, so check-ins get further apart. Recalling beats re-reading, and a night's sleep helps it stick."
-              color: root.dim
-              font.family: Style.font.family
-              font.pixelSize: Style.font.bodySmall
-              lineHeight: 1.25
-            }
-            Text {
-              width: parent.width
-              wrapMode: Text.WordWrap
-              text: "Remember it and the next gap is longer. Forget, and it comes back sooner. Pass all six and it's locked in. Check-ins wait for a pause in your typing: at most one every 15 minutes, 8 a day."
-              color: root.dim
-              font.family: Style.font.family
-              font.pixelSize: Style.font.bodySmall
-              lineHeight: 1.25
-            }
-            Item { width: 1; height: Style.space(2) }
-            Link {
-              text: "The science behind it ›"
-              strong: true
-              onClicked: root.detail = root.method
-            }
-            Pill {
-              label: "Got it"
-              primary: true
-              onClicked: { root.showIntro = false; root.run(["intro-seen"]) }
-            }
-          }
-        }
-      }
-
-      // First open: set up a practice desktop. Four tiled terminals on an
-      // empty desktop give every lesson something to act on, nothing to click
-      // instead of the shortcut, and nothing real to rearrange.
-      Rectangle {
-        id: setupLayer
-        z: 32
-        anchors.fill: parent
-        visible: opacity > 0
-        opacity: root.showSetup ? 1 : 0
-        Behavior on opacity { NumberAnimation { duration: 200 } }
-        color: Qt.rgba(Commons.Color.popups.background.r, Commons.Color.popups.background.g,
-                       Commons.Color.popups.background.b, 0.88)
-        MouseArea { anchors.fill: parent; enabled: setupLayer.visible }
-
-        Rectangle {
-          anchors.centerIn: parent
-          width: parent.width - Style.space(40)
-          height: setupText.implicitHeight + Style.space(40)
-          radius: Style.space(10)
-          color: Commons.Color.popups.background
-          border.color: root.accent
-          border.width: Math.max(1, Style.space(2))
-          Column {
-            id: setupText
-            x: Style.space(20)
-            y: Style.space(20)
-            width: parent.width - Style.space(40)
-            spacing: Style.space(12)
-            // The hook first: what this is built on, in two lines.
-            Text {
-              width: parent.width
-              wrapMode: Text.WordWrap
-              text: "Learn shortcuts with a method backed by science"
-              color: root.accent
-              font.family: Style.font.family
-              font.pixelSize: Style.font.body + 3
-              font.bold: true
-            }
-            Text {
-              width: parent.width
-              wrapMode: Text.WordWrap
-              text: "A few shortcuts at a time, then quick check-ins spaced out just as each one starts to fade, so it sticks for good. It's built on decades of memory research."
-              color: root.fg
-              font.family: Style.font.family
-              font.pixelSize: Style.font.bodySmall
-              lineHeight: 1.3
-            }
-            Link {
-              text: "The science behind it ›"
-              strong: true
-              onClicked: root.detail = root.method
-            }
-            Rectangle { width: parent.width; height: 1; color: root.faint }
-            Text {
-              text: "First, set up a practice desktop"
-              color: root.fg
-              font.family: Style.font.family
-              font.pixelSize: Style.font.body + 1
-              font.bold: true
-            }
-            Repeater {
-              model: [
-                { n: "1", keys: root.setupKeys.desktop, text: "Go to an empty desktop." },
-                { n: "2", keys: root.setupKeys.terminal, text: "Press it 4 times: four tiled terminals." }
-              ]
-              delegate: Row {
-                id: step
-                required property var modelData
-                spacing: Style.space(10)
-                Text {
-                  width: Style.space(14)
-                  anchors.verticalCenter: parent.verticalCenter
-                  text: modelData.n
-                  color: root.dim
-                  font.family: Style.font.family
-                  font.pixelSize: Style.font.body
-                  font.bold: true
-                }
-                Keys { id: stepKeys; keys: modelData.keys.toUpperCase(); anchors.verticalCenter: parent.verticalCenter }
-                Text {
-                  anchors.verticalCenter: parent.verticalCenter
-                  width: setupText.width - Style.space(14) - stepKeys.width - Style.space(20)
-                  wrapMode: Text.WordWrap
-                  text: modelData.text
-                  color: root.fg
-                  font.family: Style.font.family
-                  font.pixelSize: Style.font.bodySmall
-                }
-              }
-            }
-            Text {
-              width: parent.width
-              wrapMode: Text.WordWrap
-              text: "Try every lesson there. Four windows give each shortcut something to act on, terminals have nothing to click instead of the keys, and nothing on your real desktops gets moved."
-              color: Qt.rgba(root.fg.r, root.fg.g, root.fg.b, 0.82)
-              font.family: Style.font.family
-              font.pixelSize: Style.font.bodySmall
-              lineHeight: 1.3
-            }
-            Pill {
-              label: "I'm set"
-              primary: true
-              onClicked: root.dismissSetup()
-            }
-          }
-        }
-      }
-
-      // The longer explanation for one lesson (the ⓘ button).
-      Rectangle {
-        id: detailLayer
-        z: 35
-        anchors.fill: parent
-        visible: opacity > 0
-        opacity: root.detail ? 1 : 0
-        Behavior on opacity { NumberAnimation { duration: 180 } }
-        color: Qt.rgba(Commons.Color.popups.background.r, Commons.Color.popups.background.g,
-                       Commons.Color.popups.background.b, 0.88)
-        // Kept while fading out, so the card doesn't empty mid-fade.
-        property var shown: null
-        Connections {
-          target: root
-          function onDetailChanged() { if (root.detail) detailLayer.shown = root.detail }
-        }
-        MouseArea {
-          anchors.fill: parent
-          enabled: detailLayer.visible
-          onClicked: root.detail = null
+          font.pixelSize: Style.font.body
         }
 
-        Rectangle {
-          anchors.centerIn: parent
-          width: parent.width - Style.space(40)
-          height: Math.min(parent.height - Style.space(24), detailText.implicitHeight + Style.space(36))
-          radius: Style.space(10)
-          color: Commons.Color.popups.background
-          border.color: root.accent
-          border.width: Math.max(1, Style.space(2))
-          MouseArea { anchors.fill: parent }  // clicks inside don't close it
+        Item { width: 1; height: Style.space(14) }
+        SectionLabel { text: "ALL SHORTCUTS" }
+        Item { width: 1; height: Style.space(4) }
 
-          // Scrolls when a long explanation doesn't fit.
-          Flickable {
-            anchors.fill: parent
-            anchors.margins: Style.space(18)
-            contentWidth: width
-            contentHeight: detailText.implicitHeight
-            clip: true
-            boundsBehavior: Flickable.StopAtBounds
-            interactive: contentHeight > height
+        // Starred shortcuts: your own cheat sheet. Open unless folded.
+        ListSection {
+          key: "fav"
+          icon: "󰓎"
+          title: "Favorites"
+          items: root.favorites
+        }
 
-          Column {
-            id: detailText
-            width: parent.width
-            spacing: Style.space(12)
+        // Shortcuts in practice, next check-in first. Folded by default.
+        ListSection {
+          id: practiceList
+          key: "practice"
+          icon: "󰥔"
+          title: "In practice"
+          items: root.inPractice
+          openByDefault: false
+        }
+
+        Repeater {
+          model: root.sections
+          delegate: Column {
+            id: section
+            required property var modelData
+            readonly property bool open: !!root.expanded[modelData.level]
+            readonly property bool finished: modelData.done === modelData.total
+            width: column.width
 
             Item {
               width: parent.width
-              height: Math.max(detailKeys.height, detailTitle.implicitHeight)
-              Keys {
-                id: detailKeys
-                visible: keys !== ""
-                keys: detailLayer.shown ? detailLayer.shown.keys : ""
-                anchors.verticalCenter: parent.verticalCenter
+              height: Style.space(32)
+              Rectangle {
+                anchors.fill: parent
+                radius: Style.space(6)
+                color: headerMouse.containsMouse ? Qt.rgba(root.fg.r, root.fg.g, root.fg.b, 0.05) : "transparent"
+              }
+              MouseArea {
+                id: headerMouse
+                anchors.fill: parent
+                hoverEnabled: true
+                cursorShape: Qt.PointingHandCursor
+                onClicked: root.toggleSection(section.modelData.level)
               }
               Text {
-                id: detailTitle
-                x: detailKeys.visible ? detailKeys.width + Style.space(10) : 0
-                width: parent.width - x - Style.space(24)
+                id: chevron
+                x: Style.space(10)
+                width: Style.space(12)
                 anchors.verticalCenter: parent.verticalCenter
-                elide: Text.ElideRight
-                text: detailLayer.shown ? detailLayer.shown.title : ""
-                color: root.fg
+                text: "›"
+                rotation: section.open ? 90 : 0
+                Behavior on rotation { NumberAnimation { duration: 160 } }
+                color: root.dim
                 font.family: Style.font.family
                 font.pixelSize: Style.font.body + 2
                 font.bold: true
               }
-              Link {
-                anchors.right: parent.right
+              Text {
+                x: Style.space(30)
                 anchors.verticalCenter: parent.verticalCenter
-                text: "✕"
+                text: (section.modelData.icon ? section.modelData.icon + "  " : "") + section.modelData.name
+                color: section.finished ? root.accent : root.fg
+                font.family: Style.font.family
                 font.pixelSize: Style.font.body
-                onClicked: root.detail = null
+                font.bold: true
+              }
+              // Tick the whole section, for shortcuts you already know.
+              Link {
+                visible: section.open && !section.finished
+                anchors.right: count.left
+                anchors.rightMargin: Style.space(16)
+                anchors.verticalCenter: parent.verticalCenter
+                text: "I know these"
+                font.pixelSize: Style.font.caption
+                onClicked: root.run(["done-section", String(section.modelData.level)])
+              }
+              Text {
+                id: count
+                anchors.right: parent.right
+                anchors.rightMargin: Style.space(10)
+                anchors.verticalCenter: parent.verticalCenter
+                width: Style.space(44)
+                horizontalAlignment: Text.AlignRight
+                text: section.finished ? "✓ " + section.modelData.total : section.modelData.done + "/" + section.modelData.total
+                color: section.finished ? root.accent : root.dim
+                font.family: Style.font.family
+                font.pixelSize: Style.font.bodySmall
+                font.bold: section.finished
               }
             }
 
             Repeater {
-              model: detailLayer.shown && detailLayer.shown.more ? detailLayer.shown.more.split("\n\n") : []
-              delegate: Text {
-                required property string modelData
-                required property int index
-                width: detailText.width
-                wrapMode: Text.WordWrap
-                textFormat: Text.StyledText
-                text: modelData
-                color: index === 0 ? root.fg : Qt.rgba(root.fg.r, root.fg.g, root.fg.b, 0.82)
-                font.family: Style.font.family
-                font.pixelSize: Style.font.bodySmall
-                lineHeight: 1.3
-              }
+              model: section.open ? section.modelData.items : []
+              delegate: SectionRow {}
             }
           }
+        }
+
+      }
+    }
+
+    // Status line, pinned under the scrolling content at a fixed height,
+    // so hints and Undo never move anything and are always in view.
+    Item {
+      id: statusLine
+      anchors.left: parent.left
+      anchors.right: parent.right
+      anchors.bottom: parent.bottom
+      height: Style.space(42)
+      Rectangle { x: Style.space(8); width: parent.width - Style.space(16); height: 1; color: root.faint }
+      Item {
+        y: Style.space(4)
+        width: parent.width
+        height: Style.space(38)
+
+              // What the hovered control does.
+              Text {
+                visible: root.hint !== ""
+                x: Style.space(8)
+                width: parent.width - Style.space(16)
+                anchors.verticalCenter: parent.verticalCenter
+                elide: Text.ElideRight
+                text: root.hint
+                color: root.accent
+                font.family: Style.font.family
+                font.pixelSize: Style.font.bodySmall
+              }
+
+              // Undo for the last "know it", in case it was a slip.
+              Item {
+                anchors.fill: parent
+                visible: root.hint === "" && root.undoTitle !== ""
+                Text {
+                  x: Style.space(8)
+                  width: undoLink.x - x - Style.space(12)
+                  anchors.verticalCenter: parent.verticalCenter
+                  elide: Text.ElideRight
+                  text: "✓ Marked “" + root.undoTitle + "” as known"
+                  color: root.dim
+                  font.family: Style.font.family
+                  font.pixelSize: Style.font.bodySmall
+                }
+                Link {
+                  id: undoLink
+                  anchors.right: parent.right
+                  anchors.rightMargin: Style.space(10)
+                  anchors.verticalCenter: parent.verticalCenter
+                  text: "Undo"
+                  strong: true
+                  onClicked: {
+                    if (!root.undoArgs) return
+                    root.run(root.undoArgs)
+                    root.undoTitle = ""
+                  }
+                }
+              }
+
+              // Practice status, and pause for meetings.
+              Item {
+                anchors.fill: parent
+                visible: root.hint === "" && root.undoTitle === "" && (root.practicing > 0 || root.paused)
+                Text {
+                  x: Style.space(8)
+                  anchors.verticalCenter: parent.verticalCenter
+                  text: "󰥔 " + root.practicing + " in practice · check-ins " + (root.paused ? "paused" : "on")
+                  color: root.dim
+                  font.family: Style.font.family
+                  font.pixelSize: Style.font.bodySmall
+                }
+                Link {
+                  anchors.right: parent.right
+                  anchors.rightMargin: Style.space(10)
+                  anchors.verticalCenter: parent.verticalCenter
+                  text: root.paused ? "Resume" : "Pause"
+                  onClicked: root.run(["pause", root.paused ? "off" : "on"])
+                }
+              }
+            }
+
+      }
+
+    // Section-complete banner, floating over the header.
+    Rectangle {
+      z: 20
+      x: Style.space(4)
+      y: Style.space(2)
+      width: parent.width - Style.space(8)
+      height: Style.space(44)
+      radius: Style.space(8)
+      visible: opacity > 0
+      opacity: root.bannerText !== "" ? 1 : 0
+      Behavior on opacity { NumberAnimation { duration: 220 } }
+      color: Commons.Color.popups.background
+      border.color: root.accent
+      border.width: Math.max(1, Style.space(2))
+      MouseArea { anchors.fill: parent; enabled: parent.visible }
+      Rectangle {
+        anchors.fill: parent
+        radius: parent.radius
+        color: Qt.rgba(root.accent.r, root.accent.g, root.accent.b, 0.16)
+      }
+      Text {
+        anchors.centerIn: parent
+        text: root.bannerText
+        color: root.accent
+        font.family: Style.font.family
+        font.pixelSize: Style.font.body + 2
+        font.bold: true
+      }
+    }
+
+    // How practice works, the first time someone presses Practice.
+    Rectangle {
+      id: introLayer
+      z: 30
+      anchors.fill: parent
+      visible: opacity > 0
+      opacity: root.showIntro ? 1 : 0
+      Behavior on opacity { NumberAnimation { duration: 200 } }
+      color: Qt.rgba(Commons.Color.popups.background.r, Commons.Color.popups.background.g,
+                     Commons.Color.popups.background.b, 0.88)
+      MouseArea { anchors.fill: parent; enabled: introLayer.visible }
+
+      Rectangle {
+        anchors.centerIn: parent
+        width: parent.width - Style.space(40)
+        height: introText.implicitHeight + Style.space(36)
+        radius: Style.space(10)
+        color: Commons.Color.popups.background
+        border.color: root.accent
+        border.width: Math.max(1, Style.space(2))
+        Column {
+          id: introText
+          x: Style.space(18)
+          y: Style.space(18)
+          width: parent.width - Style.space(36)
+          spacing: Style.space(10)
+          Text {
+            text: "󰥔  How practice works"
+            color: root.accent
+            font.family: Style.font.family
+            font.pixelSize: Style.font.body + 2
+            font.bold: true
+          }
+          Text {
+            width: parent.width
+            wrapMode: Text.WordWrap
+            text: "Try the shortcut once now; it then moves to In practice and comes back as a quick check-in while you work: after 10 minutes, 1 hour, 1 day, 4 days, 2 weeks and 6 weeks."
+            color: root.fg
+            font.family: Style.font.family
+            font.pixelSize: Style.font.bodySmall
+            lineHeight: 1.25
+          }
+          Text {
+            width: parent.width
+            wrapMode: Text.WordWrap
+            text: "Each time you recall a shortcut just as it starts to fade, the memory lasts longer, so check-ins get further apart. Recalling beats re-reading, and a night's sleep helps it stick."
+            color: root.dim
+            font.family: Style.font.family
+            font.pixelSize: Style.font.bodySmall
+            lineHeight: 1.25
+          }
+          Text {
+            width: parent.width
+            wrapMode: Text.WordWrap
+            text: "Remember it and the next gap is longer. Forget, and it comes back sooner. Pass all six and it's locked in. Check-ins wait for a pause in your typing: at most one every 15 minutes, 8 a day."
+            color: root.dim
+            font.family: Style.font.family
+            font.pixelSize: Style.font.bodySmall
+            lineHeight: 1.25
+          }
+          Item { width: 1; height: Style.space(2) }
+          Link {
+            text: "The science behind it ›"
+            strong: true
+            onClicked: root.detail = root.method
+          }
+          Pill {
+            label: "Got it"
+            primary: true
+            onClicked: { root.showIntro = false; root.run(["intro-seen"]) }
           }
         }
       }
+    }
 
-      // Confetti flies over everything.
-      Item {
-        id: confettiLayer
-        z: 40
-        anchors.fill: parent
+    // First open: set up a practice desktop. Four tiled terminals on an
+    // empty desktop give every lesson something to act on, nothing to click
+    // instead of the shortcut, and nothing real to rearrange.
+    Rectangle {
+      id: setupLayer
+      z: 32
+      anchors.fill: parent
+      visible: opacity > 0
+      opacity: root.showSetup ? 1 : 0
+      Behavior on opacity { NumberAnimation { duration: 200 } }
+      color: Qt.rgba(Commons.Color.popups.background.r, Commons.Color.popups.background.g,
+                     Commons.Color.popups.background.b, 0.88)
+      MouseArea { anchors.fill: parent; enabled: setupLayer.visible }
+
+      Rectangle {
+        anchors.centerIn: parent
+        width: parent.width - Style.space(40)
+        height: setupText.implicitHeight + Style.space(40)
+        radius: Style.space(10)
+        color: Commons.Color.popups.background
+        border.color: root.accent
+        border.width: Math.max(1, Style.space(2))
+        Column {
+          id: setupText
+          x: Style.space(20)
+          y: Style.space(20)
+          width: parent.width - Style.space(40)
+          spacing: Style.space(12)
+          // The hook first: what this is built on, in two lines.
+          Text {
+            width: parent.width
+            wrapMode: Text.WordWrap
+            text: "Learn shortcuts with a method backed by science"
+            color: root.accent
+            font.family: Style.font.family
+            font.pixelSize: Style.font.body + 3
+            font.bold: true
+          }
+          Text {
+            width: parent.width
+            wrapMode: Text.WordWrap
+            text: "A few shortcuts at a time, then quick check-ins spaced out just as each one starts to fade, so it sticks for good. It's built on decades of memory research."
+            color: root.fg
+            font.family: Style.font.family
+            font.pixelSize: Style.font.bodySmall
+            lineHeight: 1.3
+          }
+          Link {
+            text: "The science behind it ›"
+            strong: true
+            onClicked: root.detail = root.method
+          }
+          Rectangle { width: parent.width; height: 1; color: root.faint }
+          Text {
+            text: "First, set up a practice desktop"
+            color: root.fg
+            font.family: Style.font.family
+            font.pixelSize: Style.font.body + 1
+            font.bold: true
+          }
+          Repeater {
+            model: [
+              { n: "1", keys: root.setupKeys.desktop, text: "Go to an empty desktop." },
+              { n: "2", keys: root.setupKeys.terminal, text: "Press it 4 times: four tiled terminals." }
+            ]
+            delegate: Row {
+              id: step
+              required property var modelData
+              spacing: Style.space(10)
+              Text {
+                width: Style.space(14)
+                anchors.verticalCenter: parent.verticalCenter
+                text: modelData.n
+                color: root.dim
+                font.family: Style.font.family
+                font.pixelSize: Style.font.body
+                font.bold: true
+              }
+              Keys { id: stepKeys; keys: modelData.keys.toUpperCase(); anchors.verticalCenter: parent.verticalCenter }
+              Text {
+                anchors.verticalCenter: parent.verticalCenter
+                width: setupText.width - Style.space(14) - stepKeys.width - Style.space(20)
+                wrapMode: Text.WordWrap
+                text: modelData.text
+                color: root.fg
+                font.family: Style.font.family
+                font.pixelSize: Style.font.bodySmall
+              }
+            }
+          }
+          Text {
+            width: parent.width
+            wrapMode: Text.WordWrap
+            text: "Try every lesson there. Four windows give each shortcut something to act on, terminals have nothing to click instead of the keys, and nothing on your real desktops gets moved."
+            color: Qt.rgba(root.fg.r, root.fg.g, root.fg.b, 0.82)
+            font.family: Style.font.family
+            font.pixelSize: Style.font.bodySmall
+            lineHeight: 1.3
+          }
+          Pill {
+            label: "I'm set"
+            primary: true
+            onClicked: root.dismissSetup()
+          }
+        }
       }
     }
+
+    // The longer explanation for one lesson (the ⓘ button).
+    Rectangle {
+      id: detailLayer
+      z: 35
+      anchors.fill: parent
+      visible: opacity > 0
+      opacity: root.detail ? 1 : 0
+      Behavior on opacity { NumberAnimation { duration: 180 } }
+      color: Qt.rgba(Commons.Color.popups.background.r, Commons.Color.popups.background.g,
+                     Commons.Color.popups.background.b, 0.88)
+      // Kept while fading out, so the card doesn't empty mid-fade.
+      property var shown: null
+      Connections {
+        target: root
+        function onDetailChanged() { if (root.detail) detailLayer.shown = root.detail }
+      }
+      MouseArea {
+        anchors.fill: parent
+        enabled: detailLayer.visible
+        onClicked: root.detail = null
+      }
+
+      Rectangle {
+        anchors.centerIn: parent
+        width: parent.width - Style.space(40)
+        height: Math.min(parent.height - Style.space(24), detailText.implicitHeight + Style.space(36))
+        radius: Style.space(10)
+        color: Commons.Color.popups.background
+        border.color: root.accent
+        border.width: Math.max(1, Style.space(2))
+        MouseArea { anchors.fill: parent }  // clicks inside don't close it
+
+        // Scrolls when a long explanation doesn't fit.
+        Flickable {
+          anchors.fill: parent
+          anchors.margins: Style.space(18)
+          contentWidth: width
+          contentHeight: detailText.implicitHeight
+          clip: true
+          boundsBehavior: Flickable.StopAtBounds
+          interactive: contentHeight > height
+
+        Column {
+          id: detailText
+          width: parent.width
+          spacing: Style.space(12)
+
+          Item {
+            width: parent.width
+            height: Math.max(detailKeys.height, detailTitle.implicitHeight)
+            Keys {
+              id: detailKeys
+              visible: keys !== ""
+              keys: detailLayer.shown ? detailLayer.shown.keys : ""
+              anchors.verticalCenter: parent.verticalCenter
+            }
+            Text {
+              id: detailTitle
+              x: detailKeys.visible ? detailKeys.width + Style.space(10) : 0
+              width: parent.width - x - Style.space(24)
+              anchors.verticalCenter: parent.verticalCenter
+              elide: Text.ElideRight
+              text: detailLayer.shown ? detailLayer.shown.title : ""
+              color: root.fg
+              font.family: Style.font.family
+              font.pixelSize: Style.font.body + 2
+              font.bold: true
+            }
+            Link {
+              anchors.right: parent.right
+              anchors.verticalCenter: parent.verticalCenter
+              text: "✕"
+              font.pixelSize: Style.font.body
+              onClicked: root.detail = null
+            }
+          }
+
+          Repeater {
+            model: detailLayer.shown && detailLayer.shown.more ? detailLayer.shown.more.split("\n\n") : []
+            delegate: Text {
+              required property string modelData
+              required property int index
+              width: detailText.width
+              wrapMode: Text.WordWrap
+              textFormat: Text.StyledText
+              text: modelData
+              color: index === 0 ? root.fg : Qt.rgba(root.fg.r, root.fg.g, root.fg.b, 0.82)
+              font.family: Style.font.family
+              font.pixelSize: Style.font.bodySmall
+              lineHeight: 1.3
+            }
+          }
+        }
+        }
+      }
+    }
+
+    // Confetti flies over everything.
+    Item {
+      id: confettiLayer
+      z: 40
+      anchors.fill: parent
+    }
+  }
+
+  // A normal window on the desktop: it tiles, takes the highlight like any
+  // other window, and closes with Super + W (back to the bar popup).
+  FloatingWindow {
+    id: coachWindow
+    visible: false
+    title: "Shortcut Coach"
+    implicitWidth: Style.space(700)
+    implicitHeight: Style.space(940)
+    color: Commons.Color.popups.background
+    onVisibleChanged: if (!visible && root.detached) { root.detached = false; root.run(["window", "off"]) }
   }
 }

@@ -49,6 +49,11 @@ again.
 - **󰥔 Practice:** you're not sure. Try it once right away, then it steps
   aside and comes back for quick check-ins.
 
+Prefer it on the desktop? The window button (󰏌) in the coach's header turns it
+into a normal window: it tiles like any app, takes the highlight when you point
+at it, and can be moved, sent to another desktop or closed with Super + W
+(which brings it back to the bar). It stays a window across restarts.
+
 Star (☆) any shortcut to keep it in **Favorites**, your own cheat sheet at
 the top of the list. Shortcuts you're practicing collect in **In practice**,
 next check-in first. Some shortcuts have an ⓘ that opens a fuller
