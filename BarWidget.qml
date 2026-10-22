@@ -888,6 +888,9 @@ BarWidget {
     Text {
       id: stitle
       x: skeys.x + skeys.width + Style.space(10)
+      HoverHandler {
+        onHoveredChanged: root.hint = hovered && stitle.truncated ? stitle.text : (root.hint === stitle.text ? "" : root.hint)
+      }
       width: Math.min(implicitWidth, (note.visible ? note.x : sstar.x) - Style.space(10) - x
                                      - (sinfo.visible ? sinfo.width + Style.space(8) : 0))
       y: (Style.space(32) - height) / 2
