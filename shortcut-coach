@@ -148,7 +148,8 @@ def lessons(s, cur):
     items = [dict(c, custom=True, level=0, section="Added for you") for c in s["custom"]]
     for c in cur["lessons"]:
         c = dict(c)
-        if live is not None:
+        # Menu lessons are reached by clicking, not a binding.
+        if live is not None and not c.get("menu"):
             if c["action"] not in live:
                 continue  # not bound on this machine
             if not FAMILY.search(c["keys"]):
@@ -208,6 +209,7 @@ def progress(s):
         sections.append({
             "level": level,
             "name": cur["levels"].get(str(level), f"Section {level}"),
+            "icon": cur.get("icons", {}).get(str(level), ""),
             "done": sum(1 for i in members if i["mastered"]),
             "total": len(members),
             "items": members,

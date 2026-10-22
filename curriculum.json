@@ -1,10 +1,11 @@
 {
  "levels": {
   "1": "Essentials",
-  "2": "Daily Driver",
-  "3": "Window Wrangler",
-  "4": "Power User",
-  "5": "Omarchy Master"
+  "2": "Make It Yours",
+  "3": "Daily Driver",
+  "4": "Window Wrangler",
+  "5": "Power User",
+  "6": "Omarchy Master"
  },
  "lessons": [
   {
@@ -124,12 +125,83 @@
    "level": 1
   },
   {
+   "id": "theme-menu",
+   "action": "Theme menu",
+   "keys": "SUPER SHIFT CTRL + SPACE",
+   "title": "Switch themes",
+   "why": "New colors everywhere, wallpaper included.",
+   "level": 2,
+   "more": "A theme restyles the whole desktop at once: terminal colors, the bar, menus, window borders, the lock screen and a matching set of wallpapers. Even this coach changes color to match.\n\nOmarchy ships with about 20 themes. Pick one in the switcher and it applies instantly; you can flip back just as fast. It's also in the Omarchy menu under Style › Theme."
+  },
+  {
+   "id": "background",
+   "action": "Background switcher",
+   "keys": "SUPER CTRL + SPACE",
+   "title": "Change the wallpaper",
+   "why": "Each theme brings its own set.",
+   "level": 2,
+   "more": "Opens the wallpaper picker for the theme you're using. Click one and it's set.\n\nTo add your own pictures, use the Omarchy menu: Install › Style › Background opens the folder they go in."
+  },
+  {
+   "id": "theme-install",
+   "menu": true,
+   "keys": "MENU › INSTALL › STYLE › THEME",
+   "level": 2,
+   "title": "Install a community theme",
+   "why": "Paste a theme's GitHub link.",
+   "more": "Beyond the built-in themes, people share their own on GitHub. In the Omarchy menu ({launcher}), go to Install › Style › Theme and paste the theme's GitHub link; it installs and applies in one step.\n\nFrom a terminal it's the same: omarchy theme install followed by the link. To find themes, search GitHub for \"omarchy theme\". Installed themes show up in the theme switcher alongside the built-in ones."
+  },
+  {
+   "id": "font",
+   "menu": true,
+   "keys": "MENU › STYLE › FONT",
+   "level": 2,
+   "title": "Change the font",
+   "why": "Terminals, the bar and menus, all at once.",
+   "more": "In the Omarchy menu ({launcher}), go to Style › Font and pick one. It changes the font across terminals, the bar and menus together.\n\nMore fonts can be added from Install › Style › Font."
+  },
+  {
+   "id": "transparency",
+   "action": "Toggle window transparency",
+   "keys": "SUPER + BACKSPACE",
+   "title": "Make a window solid",
+   "why": "See-through or solid, per window.",
+   "level": 2,
+   "more": "Omarchy makes windows slightly see-through by default. {transparency} makes the window you're in fully solid, which helps with photos, video or design work. Press it again to undo."
+  },
+  {
+   "id": "gaps",
+   "action": "Toggle window gaps",
+   "keys": "SUPER SHIFT + BACKSPACE",
+   "title": "Turn window gaps off and on",
+   "why": "Edge to edge, or a little air between windows.",
+   "level": 2
+  },
+  {
+   "id": "bar-position",
+   "menu": true,
+   "keys": "MENU › STYLE › MENU BAR",
+   "level": 2,
+   "title": "Move the bar",
+   "why": "Top, bottom, left or right.",
+   "more": "In the Omarchy menu ({launcher}), Style › Menu Bar › Position puts the bar on any edge of the screen. The same menu can make the bar transparent.\n\nTo hide it for a moment instead, use {toggle-bar}."
+  },
+  {
+   "id": "nightlight",
+   "action": "Toggle nightlight",
+   "keys": "SUPER CTRL + N",
+   "level": 2,
+   "title": "Night light",
+   "why": "Warmer colors for the evening.",
+   "more": "Shifts the screen toward warm colors, easier on the eyes at night. Press it again to switch it off."
+  },
+  {
    "id": "clipboard",
    "action": "Clipboard manager",
    "keys": "SUPER CTRL + V",
    "title": "Clipboard history",
    "why": "Everything you've copied lately.",
-   "level": 2,
+   "level": 3,
    "more": "Omarchy keeps a history of what you copy. {clipboard} opens it; pick an entry to paste it.\n\nRelated: Super + C and Super + V copy and paste the same way in every app, terminals included, where Ctrl + C would stop a running program."
   },
   {
@@ -138,7 +210,7 @@
    "keys": "ALT + TAB",
    "title": "Cycle through windows",
    "why": "Walks through the windows on this desktop.",
-   "level": 2
+   "level": 3
   },
   {
    "id": "workspace-former",
@@ -146,7 +218,7 @@
    "keys": "SUPER CTRL + TAB",
    "title": "Back to the last desktop",
    "why": "Like Alt + Tab, for desktops.",
-   "level": 2
+   "level": 3
   },
   {
    "id": "emojis",
@@ -154,7 +226,7 @@
    "keys": "SUPER CTRL + E",
    "title": "Emoji picker",
    "why": "Search and insert an emoji anywhere.",
-   "level": 2
+   "level": 3
   },
   {
    "id": "notif-dismiss",
@@ -162,13 +234,13 @@
    "keys": "SUPER + COMMA",
    "title": "Dismiss a notification",
    "why": "Add Shift to clear them all.",
-   "level": 2
+   "level": 3
   },
   {
    "id": "panels",
    "action": "Network",
    "keys": "SUPER CTRL + W",
-   "level": 2,
+   "level": 3,
    "title": "Wi-Fi, sound and Bluetooth panels",
    "variants": {
     "audio": [
@@ -189,7 +261,7 @@
    "keys": "SUPER CTRL + L",
    "title": "Lock the screen",
    "why": "Before you walk away.",
-   "level": 2
+   "level": 3
   },
   {
    "id": "float",
@@ -197,7 +269,7 @@
    "keys": "SUPER + T",
    "title": "Float a window",
    "why": "Lifts it out of the tiles, on this desktop.",
-   "level": 3,
+   "level": 4,
    "more": "Normally Omarchy tiles windows: they share the desktop automatically, with no overlap. A floating window sits on top instead, at its own size and position.\n\nDrag it with {mouse-move} and resize it with {mouse-resize}. It stays on its own desktop. Press {float} again to tile it.\n\nTo float a window and keep it with you on every desktop, use pop-out ({pop-out})."
   },
   {
@@ -206,7 +278,7 @@
    "keys": "SUPER + O",
    "title": "Pop out and pin a window",
    "why": "Floats on top and follows you everywhere.",
-   "level": 3,
+   "level": 4,
    "more": "Pop-out floats the window, centers it at a comfortable size, and pins it, so it stays visible when you switch desktops. Press {pop-out} again to put it back in the tiles.\n\nFloat ({float}) only floats it, on its own desktop.\n\nPop-out suits a video call or a video you want to keep watching while you move between desktops."
   },
   {
@@ -215,7 +287,7 @@
    "keys": "SUPER + S",
    "title": "The scratchpad: a hidden drawer",
    "why": "Show or hide it. {put} puts a window in.",
-   "level": 3,
+   "level": 4,
    "more": "Think of the scratchpad as a drawer that slides out over whatever desktop you're on. Windows in it keep running while hidden.\n\n1. Put a window in with {put}. It disappears from its desktop.\n2. Press {scratchpad} to pull the drawer out over the desktop you're on. Press it again to tuck it away.\n3. To take a window out for good, open the drawer, click the window, and press {workspace-move}.\n\nGood for things you check often but don't want taking up a tile: a chat app, music, a notes terminal.",
    "variants": {
     "put": [
@@ -230,7 +302,7 @@
    "keys": "SUPER + G",
    "title": "Stack windows as tabs",
    "why": "Flip tabs with {next}.",
-   "level": 3,
+   "level": 4,
    "more": "A group stacks several windows into one tile, with tabs on top, like a browser.\n\n1. Press {group} on a window to make its tile a group.\n2. Move a neighboring window in with Super + Alt + the arrow pointing toward the group.\n3. Switch tabs with {next}, or click a tab. {out} takes a window back out.\n\nUse it when you want several windows on one desktop but only need to see one at a time.",
    "variants": {
     "next": [
@@ -249,7 +321,7 @@
    "keys": "SUPER + J",
    "title": "Flip side-by-side to stacked",
    "why": "Switches how two tiles share the space.",
-   "level": 3,
+   "level": 4,
    "more": "In Omarchy's default layout, two windows sharing space sit side by side or one above the other. {split} flips the window you're in between the two.\n\nIt's the quickest fix when a window is too narrow to read."
   },
   {
@@ -258,7 +330,7 @@
    "keys": "SUPER + MINUS / EQUAL",
    "title": "Resize a tile",
    "why": "Shift: height. Alt: a little. Ctrl: a lot.",
-   "level": 3,
+   "level": 4,
    "more": "Super + Minus and Super + Equal change the width of the window you're in. Add Shift to change the height, Alt to move a little, and Ctrl to move a lot.\n\nWith the mouse, use {mouse-resize}."
   },
   {
@@ -267,7 +339,7 @@
    "keys": "SUPER CTRL + PRINT",
    "title": "Copy text from anywhere on screen",
    "why": "Drag a box around text in any image or PDF.",
-   "level": 4,
+   "level": 5,
    "more": "Drag a box around any text on screen: an image, a video frame, a PDF that won't let you select text. The text is read on your own computer (with Tesseract, no internet) and copied to your clipboard.\n\nIt works best on clear, decent-sized text."
   },
   {
@@ -276,7 +348,7 @@
    "keys": "ALT + PRINT",
    "title": "Record the screen",
    "why": "Same picker as a screenshot, but video.",
-   "level": 4
+   "level": 5
   },
   {
    "id": "color-picker",
@@ -284,7 +356,7 @@
    "keys": "SUPER + PRINT",
    "title": "Grab any color on screen",
    "why": "Click a pixel; its hex code is copied.",
-   "level": 4
+   "level": 5
   },
   {
    "id": "share",
@@ -292,7 +364,7 @@
    "keys": "SUPER CTRL + S",
    "title": "Share menu",
    "why": "Send the clipboard or a file to a device.",
-   "level": 4
+   "level": 5
   },
   {
    "id": "calculator",
@@ -300,7 +372,7 @@
    "keys": "SUPER CTRL + Q",
    "title": "Calculator",
    "why": "A quick calculator on top of everything.",
-   "level": 4
+   "level": 5
   },
   {
    "id": "reminder",
@@ -308,7 +380,7 @@
    "keys": "SUPER CTRL + R",
    "title": "Set a reminder",
    "why": "A desktop notification in a few minutes.",
-   "level": 4
+   "level": 5
   },
   {
    "id": "notif-silence",
@@ -316,7 +388,7 @@
    "keys": "SUPER CTRL + COMMA",
    "title": "Do not disturb",
    "why": "Silence notifications for a meeting.",
-   "level": 4
+   "level": 5
   },
   {
    "id": "notif-history",
@@ -324,7 +396,7 @@
    "keys": "SUPER SHIFT ALT + COMMA",
    "title": "Notifications you missed",
    "why": "Everything that popped up while you were away.",
-   "level": 4
+   "level": 5
   },
   {
    "id": "toggle-bar",
@@ -332,22 +404,6 @@
    "keys": "SUPER SHIFT + SPACE",
    "title": "Hide or show the top bar",
    "why": "A little more room for a presentation.",
-   "level": 4
-  },
-  {
-   "id": "theme-menu",
-   "action": "Theme menu",
-   "keys": "SUPER SHIFT CTRL + SPACE",
-   "title": "Switch themes",
-   "why": "A new look for the whole desktop.",
-   "level": 5
-  },
-  {
-   "id": "background",
-   "action": "Background switcher",
-   "keys": "SUPER CTRL + SPACE",
-   "title": "Change the wallpaper",
-   "why": "Pick from the current theme's wallpapers.",
    "level": 5
   },
   {
@@ -356,23 +412,7 @@
    "keys": "SUPER + ESCAPE",
    "title": "System menu",
    "why": "Lock, suspend, restart or shut down.",
-   "level": 5
-  },
-  {
-   "id": "transparency",
-   "action": "Toggle window transparency",
-   "keys": "SUPER + BACKSPACE",
-   "title": "Make a window solid",
-   "why": "Turns off transparency for this window.",
-   "level": 5
-  },
-  {
-   "id": "gaps",
-   "action": "Toggle window gaps",
-   "keys": "SUPER SHIFT + BACKSPACE",
-   "title": "Turn window gaps off and on",
-   "why": "Squeeze out every pixel on this desktop.",
-   "level": 5
+   "level": 6
   },
   {
    "id": "layout",
@@ -380,7 +420,7 @@
    "keys": "SUPER + L",
    "title": "Switch this desktop's layout",
    "why": "Toggles between tiling layouts.",
-   "level": 5,
+   "level": 6,
    "more": "Switches this desktop between Omarchy's two tiling layouts.\n\nDwindle, the default, splits the space in half for each new window. Scrolling lines windows up in columns side by side and you scroll along them, which suits a very wide screen.\n\nThe choice is per desktop and is remembered."
   },
   {
@@ -389,8 +429,16 @@
    "keys": "SUPER + P",
    "title": "Pseudo-tile a window",
    "why": "Keeps its own size inside its tile.",
-   "level": 5,
+   "level": 6,
    "more": "In Omarchy's default layout, a pseudo-tiled window keeps its own preferred size and sits centered in its tile, instead of stretching to fill it. Useful for small dialogs or apps that look wrong stretched. Press again to undo."
   }
- ]
+ ],
+ "icons": {
+  "1": "󰌌",
+  "2": "󰏘",
+  "3": "󰄋",
+  "4": "󰖯",
+  "5": "󱐋",
+  "6": "󰔸"
+ }
 }

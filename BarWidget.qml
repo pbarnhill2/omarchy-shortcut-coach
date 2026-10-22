@@ -1017,7 +1017,7 @@ BarWidget {
                 Text {
                   x: Style.space(30)
                   anchors.verticalCenter: parent.verticalCenter
-                  text: section.modelData.name
+                  text: (section.modelData.icon ? section.modelData.icon + "  " : "") + section.modelData.name
                   color: section.finished ? root.accent : root.fg
                   font.family: Style.font.family
                   font.pixelSize: Style.font.body
