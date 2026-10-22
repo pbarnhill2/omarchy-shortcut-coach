@@ -188,6 +188,7 @@ Item {
           color: Qt.rgba(root.accent.r, root.accent.g, root.accent.b, 0.45)
         }
         Text {
+          textFormat: Text.PlainText
           id: capText
           anchors.centerIn: parent
           text: modelData
@@ -219,6 +220,7 @@ Item {
       anchors.centerIn: parent
       spacing: Style.space(8)
       Text {
+        textFormat: Text.PlainText
         anchors.verticalCenter: parent.verticalCenter
         text: btn.label
         color: btn.primary ? Commons.Color.popups.background : root.fg
@@ -228,6 +230,7 @@ Item {
       }
       // When it comes back if you pick this.
       Text {
+        textFormat: Text.PlainText
         visible: btn.sub !== ""
         anchors.verticalCenter: parent.verticalCenter
         text: btn.sub
@@ -262,6 +265,7 @@ Item {
     width: parent ? parent.width : 0
     height: kickerText.implicitHeight
     Text {
+      textFormat: Text.PlainText
       id: kickerText
       text: "FLASH CARD" + (root.item ? "  ·  " + root.item.section : "")
       color: root.dim
@@ -288,6 +292,7 @@ Item {
       }
     }
     Text {
+      textFormat: Text.PlainText
       id: closeX
       anchors.right: parent.right
       anchors.verticalCenter: parent.verticalCenter
@@ -353,12 +358,14 @@ Item {
             Kicker {}
             Item { width: 1; height: Style.space(6) }
             Text {
+              textFormat: Text.PlainText
               text: "What's the shortcut for…"
               color: root.dim
               font.family: Style.font.family
               font.pixelSize: Style.font.body
             }
             Text {
+              textFormat: Text.PlainText
               width: parent.width
               wrapMode: Text.WordWrap
               maximumLineCount: 2
@@ -370,6 +377,7 @@ Item {
               font.bold: true
             }
             Text {
+              textFormat: Text.PlainText
               text: "Think of it, or press it, then flip the card."
               color: root.dim
               font.family: Style.font.family
@@ -395,6 +403,7 @@ Item {
             spacing: Style.space(10)
             Kicker {}
             Text {
+              textFormat: Text.PlainText
               width: parent.width
               elide: Text.ElideRight
               text: root.item ? root.item.title : ""
@@ -411,6 +420,7 @@ Item {
                 spacing: Style.space(8)
                 Caps { keys: modelData.keys; anchors.verticalCenter: parent.verticalCenter }
                 Text {
+                  textFormat: Text.PlainText
                   anchors.verticalCenter: parent.verticalCenter
                   text: modelData.label
                   color: root.dim
@@ -444,6 +454,7 @@ Item {
               }
             }
             Text {
+              textFormat: Text.PlainText
               anchors.verticalCenter: parent.verticalCenter
               width: parent.width
               visible: root.message !== ""

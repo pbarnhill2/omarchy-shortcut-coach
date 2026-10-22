@@ -453,6 +453,7 @@ BarWidget {
     border.width: Math.max(1, Style.space(1))
     Behavior on color { ColorAnimation { duration: 120 } }
     Text {
+      textFormat: Text.PlainText
       anchors.centerIn: parent
       text: pill.label
       color: pill.primary || pill.hovered ? root.accent : Qt.rgba(root.fg.r, root.fg.g, root.fg.b, 0.82)
@@ -491,6 +492,7 @@ BarWidget {
       NumberAnimation { to: 1.0; duration: 260; easing.type: Easing.OutBack }
     }
     Text {
+      textFormat: Text.PlainText
       anchors.centerIn: parent
       visible: check.checked
       text: "✓"
@@ -548,6 +550,7 @@ BarWidget {
           color: Qt.rgba(root.accent.r, root.accent.g, root.accent.b, keysRow.muted ? 0.12 : 0.35)
         }
         Text {
+          textFormat: Text.PlainText
           id: capLabel
           anchors.centerIn: parent
           text: modelData
@@ -577,6 +580,7 @@ BarWidget {
         required property int index
         spacing: Style.space(6)
         Text {
+          textFormat: Text.PlainText
           visible: index > 0
           anchors.verticalCenter: parent.verticalCenter
           text: "·"
@@ -591,6 +595,7 @@ BarWidget {
           anchors.verticalCenter: parent.verticalCenter
         }
         Text {
+          textFormat: Text.PlainText
           anchors.verticalCenter: parent.verticalCenter
           text: modelData.label
           color: root.dim
@@ -628,6 +633,7 @@ BarWidget {
     border.color: root.accent
     border.width: Math.max(1, Style.space(1))
     Text {
+      textFormat: Text.PlainText
       id: badgeLabel
       anchors.centerIn: parent
       text: "CHECK-IN " + (badge.stage + 1) + "/" + badge.steps
@@ -640,6 +646,7 @@ BarWidget {
   }
 
   component SectionLabel: Text {
+    textFormat: Text.PlainText
     color: root.dim
     font.family: Style.font.family
     font.pixelSize: Style.font.caption
@@ -650,6 +657,7 @@ BarWidget {
 
   // A clickable text link that never changes size on hover.
   component Link: Text {
+    textFormat: Text.PlainText
     id: link
     property bool strong: false
     signal clicked()
@@ -669,6 +677,7 @@ BarWidget {
 
   // Opens the longer explanation, for lessons that have one.
   component Info: Text {
+    textFormat: Text.PlainText
     id: info
     property var lesson: null
     visible: !!(lesson && lesson.more)
@@ -689,6 +698,7 @@ BarWidget {
 
   // Star a shortcut to keep it in Favorites, your own cheat sheet.
   component Star: Text {
+    textFormat: Text.PlainText
     id: star
     property var lesson: null
     readonly property bool on: !!(lesson && lesson.favorite)
@@ -866,6 +876,7 @@ BarWidget {
         anchors.verticalCenter: parent.verticalCenter
       }
       Text {
+        textFormat: Text.PlainText
         id: title
         x: (chip.visible ? chip.width : badge.width) + Style.space(10)
         width: Math.min(implicitWidth, parent.width - x - (rowInfo.visible ? rowInfo.width + Style.space(8) : 0))
@@ -921,6 +932,7 @@ BarWidget {
       toY: rowNested.y + rowNested.height - Style.space(4)
     }
     Text {
+      textFormat: Text.PlainText
       id: tip
       visible: !row.showNested
       x: root.textCol
@@ -989,6 +1001,7 @@ BarWidget {
       muted: srow.mastered || srow.ticking
     }
     Text {
+      textFormat: Text.PlainText
       id: stitle
       x: skeys.x + skeys.width + Style.space(10)
       HoverHandler {
@@ -1035,6 +1048,7 @@ BarWidget {
     }
     // In practice: how far along, and the next check-in.
     Text {
+      textFormat: Text.PlainText
       id: note
       visible: !!srow.item.practicing && !srow.mastered && !srow.ticking
       x: sstar.x - width - Style.space(10)
@@ -1068,6 +1082,7 @@ BarWidget {
       spacing: Style.space(8)
       Keys { keys: fly.keys; anchors.verticalCenter: parent.verticalCenter }
       Text {
+        textFormat: Text.PlainText
         anchors.verticalCenter: parent.verticalCenter
         text: fly.title
         color: root.fg
@@ -1161,6 +1176,7 @@ BarWidget {
         }
       }
       Text {
+        textFormat: Text.PlainText
         x: Style.space(10)
         width: Style.space(12)
         anchors.verticalCenter: parent.verticalCenter
@@ -1173,6 +1189,7 @@ BarWidget {
         font.bold: true
       }
       Text {
+        textFormat: Text.PlainText
         x: Style.space(30)
         anchors.verticalCenter: parent.verticalCenter
         text: list.icon + "  " + list.title
@@ -1182,6 +1199,7 @@ BarWidget {
         font.bold: true
       }
       Text {
+        textFormat: Text.PlainText
         anchors.right: parent.right
         anchors.rightMargin: Style.space(10)
         anchors.verticalCenter: parent.verticalCenter
@@ -1252,6 +1270,7 @@ BarWidget {
       anchors.centerIn: parent
       spacing: Style.space(8)
       Text {
+        textFormat: Text.PlainText
         anchors.verticalCenter: parent.verticalCenter
         text: rb.label
         color: rb.primary ? Commons.Color.popups.background : root.fg
@@ -1260,6 +1279,7 @@ BarWidget {
         font.bold: true
       }
       Text {
+        textFormat: Text.PlainText
         visible: rb.sub !== ""
         anchors.verticalCenter: parent.verticalCenter
         text: rb.sub
@@ -1344,6 +1364,7 @@ BarWidget {
           width: parent.width
           height: Style.space(30)
           Text {
+            textFormat: Text.PlainText
             id: heading
             x: Style.space(8)
             anchors.verticalCenter: parent.verticalCenter
@@ -1355,6 +1376,7 @@ BarWidget {
           }
           // Practice desktop setup, again.
           Text {
+            textFormat: Text.PlainText
             x: heading.x + heading.width + Style.space(10)
             anchors.verticalCenter: heading.verticalCenter
             text: "󰋽"
@@ -1373,6 +1395,7 @@ BarWidget {
           }
           // Pop the coach out as a desktop window, or bring it back to the bar.
           Text {
+            textFormat: Text.PlainText
             id: windowToggle
             anchors.right: masteredCount.left
             anchors.rightMargin: Style.space(14)
@@ -1393,6 +1416,7 @@ BarWidget {
             }
           }
           Text {
+            textFormat: Text.PlainText
             id: masteredCount
             anchors.right: parent.right
             anchors.rightMargin: Style.space(8)
@@ -1440,6 +1464,7 @@ BarWidget {
               width: tabLabel.implicitWidth
               height: parent.height
               Text {
+                textFormat: Text.PlainText
                 id: tabLabel
                 anchors.verticalCenter: parent.verticalCenter
                 text: modelData.label + (modelData.count > 0 ? "  " + modelData.count : "")
@@ -1515,6 +1540,7 @@ BarWidget {
                   anchors.margins: Style.space(24)
                   spacing: Style.space(12)
                   Text {
+                    textFormat: Text.PlainText
                     text: "CARD 1 OF " + root.reviewQueue.length + (root.reviewCard ? "  ·  " + root.reviewCard.section : "")
                     color: root.dim
                     font.family: Style.font.family
@@ -1524,12 +1550,14 @@ BarWidget {
                   }
                   Item { width: 1; height: Style.space(10) }
                   Text {
+                    textFormat: Text.PlainText
                     text: "What's the shortcut for…"
                     color: root.dim
                     font.family: Style.font.family
                     font.pixelSize: Style.font.body
                   }
                   Text {
+                    textFormat: Text.PlainText
                     width: parent.width
                     wrapMode: Text.WordWrap
                     text: root.reviewCard ? root.reviewCard.title : ""
@@ -1539,6 +1567,7 @@ BarWidget {
                     font.bold: true
                   }
                   Text {
+                    textFormat: Text.PlainText
                     text: "Think of it, or press it. Then flip the card."
                     color: root.dim
                     font.family: Style.font.family
@@ -1564,6 +1593,7 @@ BarWidget {
                   anchors.margins: Style.space(24)
                   spacing: Style.space(12)
                   Text {
+                    textFormat: Text.PlainText
                     width: parent.width
                     elide: Text.ElideRight
                     text: root.reviewCard ? root.reviewCard.title : ""
@@ -1579,6 +1609,7 @@ BarWidget {
                       spacing: Style.space(8)
                       Keys { keys: modelData.keys; anchors.verticalCenter: parent.verticalCenter }
                       Text {
+                        textFormat: Text.PlainText
                         anchors.verticalCenter: parent.verticalCenter
                         text: modelData.label
                         color: root.dim
@@ -1588,6 +1619,7 @@ BarWidget {
                     }
                   }
                   Text {
+                    textFormat: Text.PlainText
                     width: parent.width
                     wrapMode: Text.WordWrap
                     text: root.reviewCard ? (root.reviewCard.why || "") : ""
@@ -1617,6 +1649,7 @@ BarWidget {
                   }
                 }
                 Text {
+                  textFormat: Text.PlainText
                   visible: root.reviewResult !== ""
                   anchors.horizontalCenter: parent.horizontalCenter
                   anchors.bottom: parent.bottom
@@ -1636,6 +1669,7 @@ BarWidget {
               anchors.centerIn: parent
               spacing: Style.space(8)
               Text {
+                textFormat: Text.PlainText
                 anchors.horizontalCenter: parent.horizontalCenter
                 text: "All caught up"
                 color: root.fg
@@ -1644,6 +1678,7 @@ BarWidget {
                 font.bold: true
               }
               Text {
+                textFormat: Text.PlainText
                 anchors.horizontalCenter: parent.horizontalCenter
                 text: "Shortcuts in practice come back here when they're due."
                 color: root.dim
@@ -1676,6 +1711,7 @@ BarWidget {
           }
 
           Text {
+            textFormat: Text.PlainText
             visible: root.tab === "learn" && upNextModel.count === 0
             anchors.centerIn: parent
             width: parent.width
@@ -1736,6 +1772,7 @@ BarWidget {
                 onClicked: root.toggleSection(section.modelData.level)
               }
               Text {
+                textFormat: Text.PlainText
                 id: chevron
                 x: Style.space(10)
                 width: Style.space(12)
@@ -1749,6 +1786,7 @@ BarWidget {
                 font.bold: true
               }
               Text {
+                textFormat: Text.PlainText
                 x: Style.space(30)
                 anchors.verticalCenter: parent.verticalCenter
                 text: (section.modelData.icon ? section.modelData.icon + "  " : "") + section.modelData.name
@@ -1768,6 +1806,7 @@ BarWidget {
                 onClicked: root.run(["done-section", String(section.modelData.level)])
               }
               Text {
+                textFormat: Text.PlainText
                 id: count
                 anchors.right: parent.right
                 anchors.rightMargin: Style.space(10)
@@ -1808,6 +1847,7 @@ BarWidget {
 
               // What the hovered control does.
               Text {
+                textFormat: Text.PlainText
                 visible: root.hint !== ""
                 x: Style.space(8)
                 width: parent.width - Style.space(16)
@@ -1824,6 +1864,7 @@ BarWidget {
                 anchors.fill: parent
                 visible: root.hint === "" && root.undoTitle !== ""
                 Text {
+                  textFormat: Text.PlainText
                   x: Style.space(8)
                   width: undoLink.x - x - Style.space(12)
                   anchors.verticalCenter: parent.verticalCenter
@@ -1853,6 +1894,7 @@ BarWidget {
                 anchors.fill: parent
                 visible: root.hint === "" && root.undoTitle === "" && (root.practicing > 0 || root.paused)
                 Text {
+                  textFormat: Text.PlainText
                   x: Style.space(8)
                   anchors.verticalCenter: parent.verticalCenter
                   text: "󰥔 " + root.practicing + " in practice · check-ins " + (root.paused ? "paused" : "on")
@@ -1893,6 +1935,7 @@ BarWidget {
         color: Qt.rgba(root.accent.r, root.accent.g, root.accent.b, 0.16)
       }
       Text {
+        textFormat: Text.PlainText
         anchors.centerIn: parent
         text: root.bannerText
         color: root.accent
@@ -1929,6 +1972,7 @@ BarWidget {
           width: parent.width - Style.space(36)
           spacing: Style.space(10)
           Text {
+            textFormat: Text.PlainText
             text: "󰥔  How practice works"
             color: root.accent
             font.family: Style.font.family
@@ -1936,6 +1980,7 @@ BarWidget {
             font.bold: true
           }
           Text {
+            textFormat: Text.PlainText
             width: parent.width
             wrapMode: Text.WordWrap
             text: "Try the shortcut once now; it then moves to In practice and comes back as a quick check-in while you work: after 10 minutes, 1 hour, 1 day, 4 days, 2 weeks and 6 weeks."
@@ -1945,6 +1990,7 @@ BarWidget {
             lineHeight: 1.25
           }
           Text {
+            textFormat: Text.PlainText
             width: parent.width
             wrapMode: Text.WordWrap
             text: "Each time you recall a shortcut just as it starts to fade, the memory lasts longer, so check-ins get further apart. Recalling beats re-reading, and a night's sleep helps it stick."
@@ -1954,6 +2000,7 @@ BarWidget {
             lineHeight: 1.25
           }
           Text {
+            textFormat: Text.PlainText
             width: parent.width
             wrapMode: Text.WordWrap
             text: "Remember it and the next gap is longer. Forget, and it comes back sooner. Pass all six and it's locked in. Check-ins wait for a pause in your typing: at most one every 15 minutes, 8 a day."
@@ -2007,6 +2054,7 @@ BarWidget {
           spacing: Style.space(12)
           // The hook first: what this is built on, in two lines.
           Text {
+            textFormat: Text.PlainText
             width: parent.width
             wrapMode: Text.WordWrap
             text: "Learn shortcuts with a method backed by science"
@@ -2016,6 +2064,7 @@ BarWidget {
             font.bold: true
           }
           Text {
+            textFormat: Text.PlainText
             width: parent.width
             wrapMode: Text.WordWrap
             text: "A few shortcuts at a time, then quick check-ins spaced out just as each one starts to fade, so it sticks for good. It's built on decades of memory research."
@@ -2031,6 +2080,7 @@ BarWidget {
           }
           Rectangle { width: parent.width; height: 1; color: root.faint }
           Text {
+            textFormat: Text.PlainText
             text: "First, set up a practice desktop"
             color: root.fg
             font.family: Style.font.family
@@ -2047,6 +2097,7 @@ BarWidget {
               required property var modelData
               spacing: Style.space(10)
               Text {
+                textFormat: Text.PlainText
                 width: Style.space(14)
                 anchors.verticalCenter: parent.verticalCenter
                 text: modelData.n
@@ -2057,6 +2108,7 @@ BarWidget {
               }
               Keys { id: stepKeys; keys: modelData.keys.toUpperCase(); anchors.verticalCenter: parent.verticalCenter }
               Text {
+                textFormat: Text.PlainText
                 anchors.verticalCenter: parent.verticalCenter
                 width: setupText.width - Style.space(14) - stepKeys.width - Style.space(20)
                 wrapMode: Text.WordWrap
@@ -2068,6 +2120,7 @@ BarWidget {
             }
           }
           Text {
+            textFormat: Text.PlainText
             width: parent.width
             wrapMode: Text.WordWrap
             text: "Try every lesson there. Four windows give each shortcut something to act on, terminals have nothing to click instead of the keys, and nothing on your real desktops gets moved."
@@ -2142,6 +2195,7 @@ BarWidget {
               anchors.verticalCenter: parent.verticalCenter
             }
             Text {
+              textFormat: Text.PlainText
               id: detailTitle
               x: detailKeys.visible ? detailKeys.width + Style.space(10) : 0
               width: parent.width - x - Style.space(24)
@@ -2169,7 +2223,8 @@ BarWidget {
               required property int index
               width: detailText.width
               wrapMode: Text.WordWrap
-              textFormat: Text.StyledText
+              // Bold only for our own methodology card; lesson text stays plain.
+              textFormat: detailLayer.shown === root.method ? Text.StyledText : Text.PlainText
               text: modelData
               color: index === 0 ? root.fg : Qt.rgba(root.fg.r, root.fg.g, root.fg.b, 0.82)
               font.family: Style.font.family

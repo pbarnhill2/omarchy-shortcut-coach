@@ -61,11 +61,34 @@ def now():
     return datetime.datetime.now().replace(microsecond=0)
 
 
+# Lesson text people (or agents) can add is capped.
+MAX_KEYS, MAX_TITLE, MAX_WHY, MAX_CUSTOM = 60, 80, 200, 200
+# Commands the panel may batch with `apply`.
+APPLY_COMMANDS = {"done", "undo", "later", "checkin", "pause", "intro-seen", "setup-seen",
+                  "done-section", "fav", "unfav", "window"}
+
+
+class StateError(Exception):
+    pass
+
+
 def load_state():
     try:
         with open(STATE) as f:
             s = json.load(f)
+        if not isinstance(s, dict):
+            raise ValueError("not an object")
+    except FileNotFoundError:
+        s = {}
     except (OSError, ValueError):
+        # Never silently start over on top of real progress: keep the damaged
+        # file aside and say so.
+        aside = f"{STATE}.damaged-{now().strftime('%Y%m%d-%H%M%S')}"
+        try:
+            os.replace(STATE, aside)
+        except OSError:
+            raise StateError(f"progress file unreadable: {STATE}")
+        print(f"shortcut-coach: progress file was unreadable; kept it as {aside}", file=sys.stderr)
         s = {}
     s.setdefault("mastered", {})
     s.setdefault("custom", [])
@@ -81,28 +104,41 @@ def load_state():
     return s
 
 
+def write_private(path, text):
+    """Write a file only you can read, atomically, without following links."""
+    fd, tmp = tempfile.mkstemp(dir=os.path.dirname(path), prefix=".shortcut-coach.")
+    try:
+        with os.fdopen(fd, "w") as f:
+            f.write(text)
+            f.flush()
+            os.fsync(f.fileno())
+        os.replace(tmp, path)
+    except BaseException:
+        try:
+            os.unlink(tmp)
+        except OSError:
+            pass
+        raise
+
+
 def backup_state():
     """Keep a copy of yesterday's progress (and the one before a reset)."""
     backup = STATE + ".bak"
     try:
-        if not os.path.exists(STATE):
+        if not os.path.isfile(STATE) or os.path.islink(STATE):
             return
-        if os.path.exists(backup) and now().timestamp() - os.path.getmtime(backup) < 86400:
+        if os.path.isfile(backup) and now().timestamp() - os.path.getmtime(backup) < 86400:
             return
-        with open(STATE) as src, open(backup, "w") as dst:
-            dst.write(src.read())
+        with open(STATE) as src:
+            write_private(backup, src.read())
     except OSError:
         pass
 
 
 def save_state(s):
-    os.makedirs(os.path.dirname(STATE), exist_ok=True)
+    os.makedirs(os.path.dirname(STATE), mode=0o700, exist_ok=True)
     backup_state()
-    fd, tmp = tempfile.mkstemp(dir=os.path.dirname(STATE), prefix=".shortcut-coach.")
-    with os.fdopen(fd, "w") as f:
-        json.dump(s, f, indent=2)
-        f.write("\n")
-    os.replace(tmp, STATE)
+    write_private(STATE, json.dumps(s, indent=2) + "\n")
 
 
 def live_bindings():
@@ -287,10 +323,21 @@ def main(argv):
     s = load_state()
 
     if cmd == "apply" and args:
-        # Several answers from the panel, saved in order.
-        for step in json.loads(args[0]):
-            main([str(a) for a in step])
-        return 0
+        # Several answers from the panel, checked first, then saved in order.
+        try:
+            steps = json.loads(args[0])
+        except ValueError:
+            return 1
+        if not isinstance(steps, list) or len(steps) > 100 or not all(
+                isinstance(st, list) and st and st[0] in APPLY_COMMANDS
+                and all(isinstance(a, (str, int)) and len(str(a)) <= 120 for a in st)
+                for st in steps):
+            print("shortcut-coach: apply only takes a list of panel commands", file=sys.stderr)
+            return 1
+        status = 0
+        for step in steps:
+            status |= main([str(a) for a in step]) or 0
+        return status
 
     if cmd == "list":
         p = progress(s)
@@ -329,6 +376,13 @@ def main(argv):
     if cmd == "add" and len(args) >= 2:
         keys, title = args[0].strip(), args[1].strip()
         why = args[2].strip() if len(args) > 2 else ""
+        if not keys or not title or len(keys) > MAX_KEYS or len(title) > MAX_TITLE or len(why) > MAX_WHY:
+            print(f"shortcut-coach: keys up to {MAX_KEYS} characters, title up to {MAX_TITLE}, "
+                  f"tip up to {MAX_WHY}", file=sys.stderr)
+            return 1
+        if len(s["custom"]) >= MAX_CUSTOM:
+            print(f"shortcut-coach: up to {MAX_CUSTOM} lessons of your own", file=sys.stderr)
+            return 1
         ids = {c["id"] for c in s["custom"]}
         new_id, n = slug(title), 2
         while new_id in ids:
@@ -469,9 +523,20 @@ def main(argv):
 def locked_main(argv):
     """One writer at a time: the panel, the check-in card and you."""
     os.makedirs(os.path.dirname(STATE), exist_ok=True)
-    with open(STATE + ".lock", "w") as lock:
-        fcntl.flock(lock, fcntl.LOCK_EX)
+    # Opened without truncating or following a link, readable only by you.
+    try:
+        fd = os.open(STATE + ".lock", os.O_RDWR | os.O_CREAT | os.O_NOFOLLOW, 0o600)
+    except OSError as e:
+        print(f"shortcut-coach: can't open the lock file {STATE}.lock ({e.strerror})", file=sys.stderr)
+        return 1
+    try:
+        fcntl.flock(fd, fcntl.LOCK_EX)
         return main(argv)
+    except StateError as e:
+        print(f"shortcut-coach: {e}", file=sys.stderr)
+        return 1
+    finally:
+        os.close(fd)
 
 
 if __name__ == "__main__":
