@@ -1,9 +1,10 @@
 # Shortcut Coach
 
-Learn Omarchy shortcuts a few at a time, in five levels from First Day to
-Omarchy Master. A cap icon in the bar opens a short
-checklist; check a shortcut off once you know it and the next one takes its
-place. Keys come from your live Hyprland bindings, so rebound shortcuts show
+Learn Omarchy shortcuts a few at a time. A cap icon in the bar opens a short
+"up next" list; check a shortcut off once you know it (confetti!) and the next
+one takes its place. Below it, every shortcut is grouped into five sections,
+Essentials through Omarchy Master. Nothing is locked: open any section to check
+off what you already know, or tick a whole section with "I know these". Keys come from your live Hyprland bindings, so rebound shortcuts show
 your keys, and lessons for shortcuts you don't have are skipped.
 
 ## Install
@@ -23,7 +24,8 @@ Anything (you, a script, an AI agent) can add a lesson with the CLI:
 ./shortcut-coach done <id>     # check one off
 ./shortcut-coach undo <id>     # bring one back
 ./shortcut-coach batch 8       # learn 8 at a time (default 6)
-./shortcut-coach reset         # start over from Level 1
+./shortcut-coach done-section 2  # check off a whole section
+./shortcut-coach reset         # start over
 ```
 
 Your own lessons go to the front of the queue. Progress lives in

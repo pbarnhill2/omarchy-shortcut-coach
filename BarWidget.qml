@@ -5,11 +5,13 @@ import qs.Commons
 import qs.Commons as Commons
 import qs.Ui
 
-// Shortcut Coach: a cap icon in the bar that opens a short checklist of the
-// shortcuts you're learning. Checking one off marks it mastered and the next
-// lesson takes its place. All reads and writes go through the
-// `shortcut-coach` script next to this file, so the panel and anything that
-// calls the script (you, or an agent adding lessons) share one state file.
+// Shortcut Coach: a cap icon in the bar that opens a short "up next" list of
+// shortcuts to learn, followed by every lesson grouped into sections. Nothing
+// is locked: up next walks the sections in order (Essentials first), and any
+// lesson can be checked off from its section. All reads and writes go
+// through the `shortcut-coach` script next to this file, so the panel and
+// anything that calls the script (you, or an agent adding lessons) share one
+// state file.
 BarWidget {
   id: root
   moduleName: "pbarnhill.shortcut-coach"
@@ -19,47 +21,31 @@ BarWidget {
 
   property bool opened: false
   property bool popoutSwitchClosing: false
-  property bool showMastered: false
-  property var learning: []
-  property var mastered: []
+  property var upNext: []
+  property var sections: []
   property int batch: 6
-  property int level: 0
-  property int levels: 0
-  property string levelName: ""
-  property int levelDone: 0
-  property int levelTotal: 0
-  property bool complete: false
+  property int mastered: 0
   property int total: 0
-  // Set when a refresh lands on a higher level than before.
-  property string levelUpText: ""
-  readonly property var current: learning.slice(0, batch)
+  property bool complete: false
+  // Which sections are unfolded, by level.
+  property var expanded: ({})
+  // Done counts from the last refresh, to spot a section being finished.
+  property var lastDone: ({})
+  property string bannerText: ""
+  readonly property var current: upNext.slice(0, batch)
 
   readonly property color fg: Commons.Color.popups.text
   readonly property color dim: Qt.darker(fg, 1.6)
   readonly property color accent: Commons.Color.accent
 
   function open() { opened = true; refresh() }
-  function close() { opened = false; showMastered = false }
+  function close() { opened = false }
   function closeForPopoutSwitch() {
     popoutSwitchClosing = true
     close()
     Qt.callLater(function() { root.popoutSwitchClosing = false })
   }
   function toggle() { opened ? close() : open() }
-
-  // A big burst across the top of the panel and a banner for a new level.
-  function celebrateLevel() {
-    root.levelUpText = root.complete ? "🏆  Shortcut Master!" : "🎉  Level " + root.level + " unlocked: " + root.levelName
-    levelUpTimer.restart()
-    for (var k = 0; k < 5; k++)
-      root.burst(confettiLayer, confettiLayer.width * (k + 0.5) / 5, Style.space(20))
-  }
-
-  Timer {
-    id: levelUpTimer
-    interval: 4000
-    onTriggered: root.levelUpText = ""
-  }
 
   function refresh() {
     listProc.running = false
@@ -70,10 +56,30 @@ BarWidget {
     Quickshell.execDetached([root.cli].concat(args))
   }
 
+  function toggleSection(level) {
+    var next = Object.assign({}, expanded)
+    next[level] = !next[level]
+    expanded = next
+  }
+
+  // A banner and a big burst across the top when a section is finished.
+  function celebrate(text) {
+    root.bannerText = text
+    bannerTimer.restart()
+    for (var k = 0; k < 5; k++)
+      root.burst(confettiLayer, confettiLayer.width * (k + 0.5) / 5, Style.space(20))
+  }
+
   implicitWidth: button.implicitWidth
   implicitHeight: button.implicitHeight
 
   Component.onCompleted: refresh()
+
+  Timer {
+    id: bannerTimer
+    interval: 4000
+    onTriggered: root.bannerText = ""
+  }
 
   Process {
     id: listProc
@@ -81,23 +87,29 @@ BarWidget {
     stdout: StdioCollector {
       waitForEnd: true
       onStreamFinished: {
-        try {
-          var data = JSON.parse(text)
-          var before = root.level
-          var wasComplete = root.complete
-          root.batch = data.batch || 6
-          root.levels = data.levels || 0
-          root.levelName = data.levelName || ""
-          root.levelDone = data.levelDone || 0
-          root.levelTotal = data.levelTotal || 0
-          root.complete = !!data.complete
-          root.total = data.total || 0
-          root.level = data.level || 0
-          root.learning = data.learning || []
-          root.mastered = data.mastered || []
-          if (before > 0 && root.opened && (root.level > before || (root.complete && !wasComplete)))
-            root.celebrateLevel()
-        } catch (e) {}
+        var data
+        try { data = JSON.parse(text) } catch (e) { return }
+        var finished = ""
+        var done = {}
+        var secs = data.sections || []
+        for (var i = 0; i < secs.length; i++) {
+          var s = secs[i]
+          done[s.level] = s.done
+          var before = root.lastDone[s.level]
+          if (before !== undefined && before < s.total && s.done === s.total) finished = s.name
+        }
+        var wasComplete = root.complete
+        root.batch = data.batch || 6
+        root.upNext = data.upNext || []
+        root.sections = secs
+        root.mastered = data.mastered || 0
+        root.total = data.total || 0
+        root.complete = !!data.complete
+        if (root.opened) {
+          if (root.complete && !wasComplete) root.celebrate("🏆  Shortcut Master!")
+          else if (finished !== "") root.celebrate("🎉  " + finished + " complete!")
+        }
+        root.lastDone = done
       }
     }
   }
@@ -116,12 +128,13 @@ BarWidget {
     bar: root.bar
     text: "󰑴"
     slotSize: Style.bar.statusSlot
-    tooltipText: root.opened ? "" : (root.complete ? "Shortcut Coach · all levels complete" : "Shortcut Coach · Level " + root.level + ": " + root.levelName)
+    tooltipText: root.opened ? "" : "Shortcut Coach · " + root.mastered + " of " + root.total + " mastered"
     onPressed: function(b) {
       if (b === Qt.MiddleButton) root.refresh()
       else root.toggle()
     }
   }
+
 
   // One piece of confetti. It pops up from where it was thrown, drifts
   // sideways, falls under "gravity" while spinning, fades, and removes itself.
@@ -173,17 +186,20 @@ BarWidget {
 
   Component { id: confettiBit; ConfettiBit {} }
 
+
   component Lesson: Item {
     id: lesson
     required property var modelData
     readonly property var item: modelData || ({})
+    // Up next rows show the tip and fold away once checked; section rows are
+    // compact and stay put, checked.
+    property bool compact: false
     readonly property bool mastered: !!item.mastered
-    // Checked in the panel and celebrating; saved once the animation ends.
     property bool celebrating: false
     readonly property bool done: mastered || celebrating
     property real collapse: 1
     width: parent ? parent.width : 0
-    height: (Math.max(box.height, textCol.implicitHeight) + Style.space(14)) * collapse
+    height: (Math.max(box.height, textCol.implicitHeight) + Style.space(compact ? 8 : 14)) * collapse
     clip: collapse < 1
 
     function check() {
@@ -192,7 +208,8 @@ BarWidget {
       celebrating = true
       var p = box.mapToItem(confettiLayer, box.width / 2, box.height / 2)
       root.burst(confettiLayer, p.x, p.y)
-      celebration.start()
+      if (compact) compactCelebration.start()
+      else celebration.start()
     }
 
     SequentialAnimation {
@@ -206,6 +223,13 @@ BarWidget {
       ScriptAction { script: root.run(["done", lesson.item.id]) }
     }
 
+    SequentialAnimation {
+      id: compactCelebration
+      NumberAnimation { target: strike; property: "width"; from: 0; to: titleText.implicitWidth; duration: 320; easing.type: Easing.OutCubic }
+      PauseAnimation { duration: 700 }
+      ScriptAction { script: root.run(["done", lesson.item.id]) }
+    }
+
     Rectangle {
       anchors.fill: parent
       radius: Style.space(6)
@@ -216,15 +240,14 @@ BarWidget {
 
     Rectangle {
       id: box
-      width: Style.space(18); height: width
+      width: Style.space(lesson.compact ? 15 : 18); height: width
       radius: Style.space(4)
       anchors.left: parent.left
-      anchors.leftMargin: Style.space(8)
+      anchors.leftMargin: Style.space(lesson.compact ? 24 : 8)
       anchors.verticalCenter: parent.verticalCenter
       color: lesson.done ? root.accent : "transparent"
       border.color: lesson.done ? root.accent : root.dim
       border.width: Math.max(1, Style.space(2))
-      scale: lesson.celebrating ? 1.0 : 1.0
       Behavior on color { ColorAnimation { duration: 150 } }
 
       // A little pop when checked.
@@ -240,7 +263,7 @@ BarWidget {
         text: "✓"
         color: Commons.Color.popups.background
         font.family: Style.font.family
-        font.pixelSize: Style.font.body
+        font.pixelSize: lesson.compact ? Style.font.bodySmall : Style.font.body
         font.bold: true
       }
     }
@@ -277,7 +300,7 @@ BarWidget {
           text: lesson.item.title || ""
           color: lesson.done ? root.dim : root.fg
           font.family: Style.font.family
-          font.pixelSize: Style.font.body
+          font.pixelSize: lesson.compact ? Style.font.bodySmall : Style.font.body
           font.strikeout: lesson.mastered
           Behavior on color { ColorAnimation { duration: 300 } }
 
@@ -294,7 +317,7 @@ BarWidget {
       }
       Text {
         width: parent.width
-        visible: !lesson.mastered && (lesson.item.why || "") !== ""
+        visible: !lesson.compact && !lesson.mastered && (lesson.item.why || "") !== ""
         text: lesson.item.why || ""
         wrapMode: Text.WordWrap
         color: root.dim
@@ -312,6 +335,17 @@ BarWidget {
     }
   }
 
+  component SectionLabel: Text {
+    color: root.dim
+    font.family: Style.font.family
+    font.pixelSize: Style.font.caption
+    font.bold: true
+    font.letterSpacing: 1
+    leftPadding: Style.space(8)
+    topPadding: Style.space(10)
+    bottomPadding: Style.space(2)
+  }
+
   KeyboardPanel {
     id: panel
     anchorItem: button
@@ -319,8 +353,8 @@ BarWidget {
     bar: root.bar
     open: root.opened
     focusTarget: keyCatcher
-    contentWidth: panel.fittedContentWidth(Style.space(460))
-    contentHeight: panel.fittedContentHeight(column.implicitHeight, Style.space(820))
+    contentWidth: panel.fittedContentWidth(Style.space(470))
+    contentHeight: panel.fittedContentHeight(column.implicitHeight, Style.space(900))
 
     PanelKeyCatcher {
       id: keyCatcher
@@ -355,7 +389,7 @@ BarWidget {
               id: title
               anchors.left: parent.left
               anchors.leftMargin: Style.space(8)
-              text: root.complete ? "Shortcut Master" : "Level " + root.level + " · " + root.levelName
+              text: root.complete ? "Shortcut Master 🏆" : "Shortcut Coach"
               color: root.fg
               font.family: Style.font.family
               font.pixelSize: Style.font.body + 2
@@ -365,20 +399,18 @@ BarWidget {
               anchors.right: parent.right
               anchors.rightMargin: Style.space(8)
               anchors.baseline: title.baseline
-              text: root.complete ? root.total + " of " + root.total + " mastered"
-                                  : root.levelDone + " of " + root.levelTotal + " · level " + root.level + " of " + root.levels
+              text: root.mastered + " of " + root.total + " mastered"
               color: root.dim
               font.family: Style.font.family
               font.pixelSize: Style.font.bodySmall
             }
           }
 
-          // Progress through the current level.
+          // Overall progress.
           Item {
             width: parent.width
             height: Style.space(14)
             Rectangle {
-              id: track
               anchors.left: parent.left
               anchors.right: parent.right
               anchors.leftMargin: Style.space(8)
@@ -391,26 +423,25 @@ BarWidget {
                 height: parent.height
                 radius: parent.radius
                 color: root.accent
-                width: root.complete ? parent.width
-                     : root.levelTotal > 0 ? parent.width * root.levelDone / root.levelTotal : 0
+                width: root.total > 0 ? parent.width * root.mastered / root.total : 0
                 Behavior on width { NumberAnimation { duration: 600; easing.type: Easing.OutCubic } }
               }
             }
           }
 
-          // Level-up banner.
+          // Section-complete banner.
           Rectangle {
             width: parent.width
-            height: visible ? levelUp.implicitHeight + Style.space(18) : 0
-            visible: root.levelUpText !== ""
+            height: visible ? bannerLabel.implicitHeight + Style.space(18) : 0
+            visible: root.bannerText !== ""
             radius: Style.space(6)
             color: Qt.rgba(root.accent.r, root.accent.g, root.accent.b, 0.18)
             border.color: root.accent
             border.width: Math.max(1, Style.space(1))
             Text {
-              id: levelUp
+              id: bannerLabel
               anchors.centerIn: parent
-              text: root.levelUpText
+              text: root.bannerText
               color: root.accent
               font.family: Style.font.family
               font.pixelSize: Style.font.body + 2
@@ -418,49 +449,102 @@ BarWidget {
             }
           }
 
+          SectionLabel { text: "UP NEXT"; visible: root.current.length > 0 }
+
           Repeater {
             model: root.current
             delegate: Lesson {}
           }
 
           Text {
-            visible: root.learning.length === 0
+            visible: root.current.length === 0
             width: parent.width
             horizontalAlignment: Text.AlignHCenter
             topPadding: Style.space(12)
             bottomPadding: Style.space(12)
-            text: root.complete ? "Every level done. You've mastered Omarchy." : "All caught up. New lessons will show up here."
+            text: root.complete ? "Every shortcut mastered. Nicely done." : "All caught up."
             color: root.dim
             font.family: Style.font.family
             font.pixelSize: Style.font.body
           }
 
-          Item {
-            width: parent.width
-            height: toggleText.implicitHeight + Style.space(14)
-            visible: root.mastered.length > 0
-            Text {
-              id: toggleText
-              anchors.left: parent.left
-              anchors.leftMargin: Style.space(8)
-              anchors.verticalCenter: parent.verticalCenter
-              text: (root.showMastered ? "▾ " : "▸ ") + "Mastered (" + root.mastered.length + ")"
-              color: toggleMouse.containsMouse ? root.fg : root.dim
-              font.family: Style.font.family
-              font.pixelSize: Style.font.bodySmall
-            }
-            MouseArea {
-              id: toggleMouse
-              anchors.fill: parent
-              hoverEnabled: true
-              cursorShape: Qt.PointingHandCursor
-              onClicked: root.showMastered = !root.showMastered
-            }
-          }
+          SectionLabel { text: "ALL SHORTCUTS" }
 
           Repeater {
-            model: root.showMastered ? root.mastered : []
-            delegate: Lesson {}
+            model: root.sections
+            delegate: Column {
+              id: section
+              required property var modelData
+              readonly property bool open: !!root.expanded[modelData.level]
+              readonly property bool finished: modelData.done === modelData.total
+              width: column.width
+              spacing: Style.space(2)
+
+              Item {
+                width: parent.width
+                height: sectionName.implicitHeight + Style.space(14)
+
+                Rectangle {
+                  anchors.fill: parent
+                  radius: Style.space(6)
+                  color: headerMouse.containsMouse ? Qt.rgba(root.fg.r, root.fg.g, root.fg.b, 0.06) : "transparent"
+                }
+                MouseArea {
+                  id: headerMouse
+                  anchors.fill: parent
+                  hoverEnabled: true
+                  cursorShape: Qt.PointingHandCursor
+                  onClicked: root.toggleSection(section.modelData.level)
+                }
+                Text {
+                  id: sectionName
+                  anchors.left: parent.left
+                  anchors.leftMargin: Style.space(8)
+                  anchors.verticalCenter: parent.verticalCenter
+                  text: (section.open ? "▾  " : "▸  ") + section.modelData.name
+                  color: section.finished ? root.accent : root.fg
+                  font.family: Style.font.family
+                  font.pixelSize: Style.font.body
+                  font.bold: true
+                }
+                // Check off the whole section, for shortcuts you already know.
+                Text {
+                  visible: section.open && !section.finished
+                  anchors.right: count.left
+                  anchors.rightMargin: Style.space(14)
+                  anchors.verticalCenter: parent.verticalCenter
+                  text: "I know these"
+                  color: knowMouse.containsMouse ? root.accent : root.dim
+                  font.family: Style.font.family
+                  font.pixelSize: Style.font.caption
+                  font.underline: knowMouse.containsMouse
+                  MouseArea {
+                    id: knowMouse
+                    anchors.fill: parent
+                    anchors.margins: -Style.space(4)
+                    hoverEnabled: true
+                    cursorShape: Qt.PointingHandCursor
+                    onClicked: root.run(["done-section", String(section.modelData.level)])
+                  }
+                }
+                Text {
+                  id: count
+                  anchors.right: parent.right
+                  anchors.rightMargin: Style.space(8)
+                  anchors.verticalCenter: parent.verticalCenter
+                  text: section.finished ? "✓ " + section.modelData.total : section.modelData.done + "/" + section.modelData.total
+                  color: section.finished ? root.accent : root.dim
+                  font.family: Style.font.family
+                  font.pixelSize: Style.font.bodySmall
+                  font.bold: section.finished
+                }
+              }
+
+              Repeater {
+                model: section.open ? section.modelData.items : []
+                delegate: Lesson { compact: true }
+              }
+            }
           }
         }
       }
