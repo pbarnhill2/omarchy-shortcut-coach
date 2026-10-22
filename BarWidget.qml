@@ -44,7 +44,7 @@ BarWidget {
   readonly property color accent: Commons.Color.accent
 
   function open() { opened = true; refresh() }
-  function close() { opened = false; showIntro = false }
+  function close() { opened = false; showIntro = false; flush() }
   function closeForPopoutSwitch() {
     popoutSwitchClosing = true
     close()
@@ -59,6 +59,42 @@ BarWidget {
 
   function run(args) {
     Quickshell.execDetached([root.cli].concat(args))
+  }
+
+  // Row answers wait until their animation has played, then save together
+  // in one locked call. They live here, not in the row, so a refresh that
+  // rebuilds the rows can't drop one.
+  property var pending: []
+  property string undoTitle: ""
+  property var undoArgs: null
+
+  function commit(args, title) {
+    pending = pending.concat([args])
+    flushTimer.restart()
+    if (title !== "") {
+      undoTitle = title
+      undoArgs = ["undo", args[1]]
+      undoTimer.restart()
+    }
+  }
+
+  function flush() {
+    if (pending.length === 0) return
+    var batch = JSON.stringify(pending)
+    pending = []
+    Quickshell.execDetached([root.cli, "apply", batch])
+  }
+
+  Timer {
+    id: flushTimer
+    interval: 1900
+    onTriggered: root.flush()
+  }
+
+  Timer {
+    id: undoTimer
+    interval: 8000
+    onTriggered: root.undoTitle = ""
   }
 
   function toggleSection(level) {
@@ -196,45 +232,95 @@ BarWidget {
   Component { id: confettiBit; ConfettiBit {} }
 
 
+  // A rounded button with an icon and a label, for the row actions.
+  component Pill: Rectangle {
+    id: pill
+    property string label: ""
+    property bool primary: false
+    signal clicked()
+    readonly property bool hovered: pillMouse.containsMouse
+    width: pillLabel.implicitWidth + Style.space(16)
+    height: Math.max(Style.space(24), pillLabel.implicitHeight + Style.space(8))
+    radius: height / 2
+    color: primary ? Qt.rgba(root.accent.r, root.accent.g, root.accent.b, hovered ? 0.30 : 0.18)
+                   : hovered ? Qt.rgba(root.accent.r, root.accent.g, root.accent.b, 0.14) : "transparent"
+    border.color: primary || hovered ? root.accent : root.dim
+    border.width: Math.max(1, Style.space(1))
+    Text {
+      id: pillLabel
+      anchors.centerIn: parent
+      text: pill.label
+      color: pill.primary || pill.hovered ? root.accent : root.dim
+      font.family: Style.font.family
+      font.pixelSize: Style.font.bodySmall
+      font.bold: pill.primary
+    }
+    MouseArea {
+      id: pillMouse
+      anchors.fill: parent
+      hoverEnabled: true
+      cursorShape: Qt.PointingHandCursor
+      onClicked: pill.clicked()
+    }
+  }
+
   component Lesson: Item {
     id: lesson
     required property var modelData
     readonly property var item: modelData || ({})
-    // Up next rows show the tip and fold away once checked; section rows are
-    // compact and stay put, checked.
+    // Up next rows show the tip and fold away once answered; section rows
+    // are compact and stay put, checked.
     property bool compact: false
     readonly property bool mastered: !!item.mastered
-    // Back from practice: the keys stay hidden until "Show me".
-    readonly property bool checkIn: !!item.checkIn
+    // Back from practice: keys hidden until "Show me". Only up next rows
+    // ask; in a section the checkbox always means "I know it".
+    readonly property bool checkIn: !!item.checkIn && !compact
     property bool revealed: false
+    // Ticked and celebrating (confetti, strike, fade).
     property bool celebrating: false
+    // Leaving for practice: slides away, the checkbox stays empty.
+    property bool leaving: false
+    readonly property bool busy: celebrating || leaving
     readonly property bool done: mastered || celebrating
     property real collapse: 1
+    // What the hovered button does, shown in place of the tip.
+    readonly property string hint: doneMouse.containsMouse
+        ? (mastered ? "Not sure after all? Unmark it" : "I know it: mark it as known")
+        : practicePill.hovered ? "Not sure yet: practice it. First check-in in 10 minutes"
+        : rememberPill.hovered ? "Remembered: on to the next, longer gap"
+        : showPill.hovered ? "Show the keys. It comes back in 10 minutes"
+        : ""
     width: parent ? parent.width : 0
-    height: (Math.max(box.height, textCol.implicitHeight) + Style.space(compact ? 8 : 14)) * collapse
+    height: (Math.max(box.height, actions.height, textCol.implicitHeight) + Style.space(compact ? 8 : 14)) * collapse
     clip: collapse < 1
 
-    // Not sure yet: practice it with spaced check-ins.
-    function later() {
-      if (celebrating) return
-      if (!root.introSeen) root.showIntro = true
-      celebrating = true
-      laterAnimation.start()
-    }
-
-    function reveal() {
-      revealed = true
-      root.run(["checkin", item.id, "fail"])
-    }
-
+    // Ticks it: mastered for good (or, on a check-in, one step along).
     function check() {
-      if (celebrating) return
+      if (busy) return
       if (mastered) { root.run(["undo", item.id]); return }
       celebrating = true
-      var p = box.mapToItem(confettiLayer, box.width / 2, box.height / 2)
+      var p = (checkIn ? rememberPill : box).mapToItem(confettiLayer, Style.space(10), Style.space(10))
       root.burst(confettiLayer, p.x, p.y)
+      root.commit(checkIn ? ["checkin", item.id, "pass"] : ["done", item.id], checkIn ? "" : item.title)
       if (compact) compactCelebration.start()
       else celebration.start()
+    }
+
+    // Not sure yet: practice it with spaced check-ins.
+    function practice() {
+      if (busy) return
+      if (!root.introSeen) root.showIntro = true
+      leaving = true
+      root.commit(["later", item.id], "")
+      leaveAnimation.start()
+    }
+
+    // Forgot at a check-in: show the keys now, record it once they're seen.
+    function acknowledge() {
+      if (busy) return
+      leaving = true
+      root.commit(["checkin", item.id, "fail"], "")
+      leaveAnimation.start()
     }
 
     SequentialAnimation {
@@ -245,51 +331,52 @@ BarWidget {
         NumberAnimation { target: lesson; property: "opacity"; to: 0; duration: 380; easing.type: Easing.InQuad }
         NumberAnimation { target: lesson; property: "collapse"; to: 0; duration: 420; easing.type: Easing.InOutQuad }
       }
-      ScriptAction { script: root.run(lesson.checkIn ? ["checkin", lesson.item.id, "pass"] : ["done", lesson.item.id]) }
     }
 
     SequentialAnimation {
-      id: laterAnimation
+      id: leaveAnimation
       ParallelAnimation {
         NumberAnimation { target: lesson; property: "opacity"; to: 0; duration: 380; easing.type: Easing.InQuad }
         NumberAnimation { target: slide; property: "x"; to: Style.space(60); duration: 380; easing.type: Easing.InQuad }
         NumberAnimation { target: lesson; property: "collapse"; to: 0; duration: 420; easing.type: Easing.InOutQuad }
       }
-      ScriptAction { script: root.run(["later", lesson.item.id]) }
     }
-
-    transform: Translate { id: slide }
 
     SequentialAnimation {
       id: compactCelebration
       NumberAnimation { target: strike; property: "width"; from: 0; to: titleText.width; duration: 320; easing.type: Easing.OutCubic }
-      PauseAnimation { duration: 700 }
-      ScriptAction { script: root.run(["done", lesson.item.id]) }
     }
+
+    transform: Translate { id: slide }
+
+    HoverHandler { id: rowHover }
 
     Rectangle {
       anchors.fill: parent
       radius: Style.space(6)
       color: lesson.celebrating ? Qt.rgba(root.accent.r, root.accent.g, root.accent.b, 0.10)
-           : rowMouse.containsMouse ? Qt.rgba(root.fg.r, root.fg.g, root.fg.b, 0.06) : "transparent"
+           : rowHover.hovered ? Qt.rgba(root.fg.r, root.fg.g, root.fg.b, 0.06) : "transparent"
       Behavior on color { ColorAnimation { duration: 200 } }
     }
 
+    // The checkbox. Only the box (and a little margin) ticks; reading the
+    // row never does. Hidden on a check-in, where the pills ask instead.
     Rectangle {
       id: box
-      width: Style.space(lesson.compact ? 15 : 18); height: width
+      visible: !lesson.checkIn
+      width: Style.space(lesson.compact ? 15 : 20); height: width
       radius: Style.space(4)
       anchors.left: parent.left
       anchors.leftMargin: Style.space(lesson.compact ? 24 : 8)
       anchors.verticalCenter: parent.verticalCenter
-      color: lesson.done ? root.accent : "transparent"
-      border.color: lesson.done ? root.accent : root.dim
+      color: lesson.done ? root.accent : doneMouse.containsMouse ? Qt.rgba(root.accent.r, root.accent.g, root.accent.b, 0.18) : "transparent"
+      border.color: lesson.done || doneMouse.containsMouse ? root.accent : root.dim
       border.width: Math.max(1, Style.space(2))
       Behavior on color { ColorAnimation { duration: 150 } }
 
       // A little pop when checked.
       SequentialAnimation on scale {
-        running: lesson.celebrating
+        running: lesson.celebrating && !lesson.checkIn
         NumberAnimation { to: 1.45; duration: 140; easing.type: Easing.OutQuad }
         NumberAnimation { to: 1.0; duration: 260; easing.type: Easing.OutBack }
       }
@@ -303,14 +390,63 @@ BarWidget {
         font.pixelSize: lesson.compact ? Style.font.bodySmall : Style.font.body
         font.bold: true
       }
+
+      MouseArea {
+        id: doneMouse
+        anchors.fill: parent
+        anchors.margins: -Style.space(3)
+        hoverEnabled: true
+        cursorShape: Qt.PointingHandCursor
+        onClicked: lesson.check()
+      }
+    }
+
+    // The row's choices, right beside the checkbox so they read as a pair:
+    // "Practice" (a clock, the convention from mail snooze) on a new lesson,
+    // "Remembered" and "Show me" on a check-in.
+    Row {
+      id: actions
+      visible: !lesson.compact
+      anchors.left: lesson.checkIn ? parent.left : box.right
+      anchors.leftMargin: Style.space(8)
+      anchors.verticalCenter: parent.verticalCenter
+      spacing: Style.space(6)
+      opacity: lesson.mastered || lesson.busy ? 0 : 1
+      enabled: opacity > 0
+
+      Pill {
+        id: practicePill
+        visible: !lesson.checkIn
+        label: "󰥔 Practice"
+        onClicked: lesson.practice()
+      }
+      Pill {
+        id: rememberPill
+        visible: lesson.checkIn && !lesson.revealed
+        primary: true
+        label: "✓ Remembered"
+        onClicked: lesson.check()
+      }
+      Pill {
+        id: showPill
+        visible: lesson.checkIn && !lesson.revealed
+        label: "󰈈 Show me"
+        onClicked: lesson.revealed = true
+      }
+      Pill {
+        visible: lesson.checkIn && lesson.revealed
+        primary: true
+        label: "Got it"
+        onClicked: lesson.acknowledge()
+      }
     }
 
     Column {
       id: textCol
-      anchors.left: box.right
+      anchors.left: lesson.compact ? box.right : actions.right
       anchors.leftMargin: Style.space(12)
       anchors.right: parent.right
-      anchors.rightMargin: lesson.compact ? Style.space(8) : Style.space(78)
+      anchors.rightMargin: Style.space(8)
       anchors.verticalCenter: parent.verticalCenter
       spacing: Style.space(3)
 
@@ -335,7 +471,7 @@ BarWidget {
         Text {
           id: titleText
           anchors.verticalCenter: parent.verticalCenter
-          width: Math.min(implicitWidth, textCol.width - keysChip.width - Style.space(10))
+          width: Math.min(implicitWidth, textCol.width - keysChip.width - Style.space(10) - (practiceNote.visible ? practiceNote.width + Style.space(8) : 0))
           elide: Text.ElideRight
           text: lesson.item.title || ""
           color: lesson.done ? root.dim : root.fg
@@ -347,7 +483,7 @@ BarWidget {
           // The strike line that draws across while celebrating.
           Rectangle {
             id: strike
-            visible: lesson.celebrating
+            visible: lesson.celebrating && !lesson.checkIn
             anchors.verticalCenter: parent.verticalCenter
             width: 0
             height: Math.max(1, Style.space(2))
@@ -358,55 +494,28 @@ BarWidget {
       Text {
         width: parent.width
         visible: !lesson.compact && !lesson.mastered && text !== ""
-        text: lesson.checkIn && !lesson.revealed
-              ? "Check-in " + (lesson.item.stage + 1) + " of " + lesson.item.steps + ". Know the keys? Tick the box."
+        text: lesson.hint !== "" ? lesson.hint
+              : lesson.checkIn && lesson.revealed ? "Try it now. " + (lesson.item.why || "")
+              : lesson.checkIn ? "Check-in " + (lesson.item.stage + 1) + " of " + lesson.item.steps + ": do you remember the keys?"
               : (lesson.item.why || "")
         wrapMode: Text.WordWrap
-        color: root.dim
+        color: lesson.hint !== "" ? root.accent : root.dim
         font.family: Style.font.family
         font.pixelSize: Style.font.bodySmall
       }
     }
 
-    MouseArea {
-      id: rowMouse
-      anchors.fill: parent
-      hoverEnabled: true
-      cursorShape: Qt.PointingHandCursor
-      onClicked: lesson.check()
-    }
-
     // In practice, shown in its section: how far along, and the next check-in.
     Text {
-      visible: lesson.compact && lesson.item.practicing && !lesson.celebrating
+      id: practiceNote
+      visible: lesson.compact && lesson.item.practicing && !lesson.busy
       anchors.right: parent.right
       anchors.rightMargin: Style.space(8)
       anchors.verticalCenter: parent.verticalCenter
-      text: "practice " + lesson.item.stage + "/" + lesson.item.steps + (lesson.item.backIn ? " · " + lesson.item.backIn : " · now")
+      text: "󰥔 " + lesson.item.stage + "/" + lesson.item.steps + (lesson.item.backIn ? " · " + lesson.item.backIn : " · now")
       color: root.dim
       font.family: Style.font.family
       font.pixelSize: Style.font.caption
-    }
-
-    // "Later" on new lessons, "Show me" on check-ins.
-    Text {
-      visible: !lesson.compact && !lesson.mastered && !lesson.celebrating && !(lesson.checkIn && lesson.revealed)
-      anchors.right: parent.right
-      anchors.rightMargin: Style.space(8)
-      anchors.verticalCenter: parent.verticalCenter
-      text: lesson.checkIn ? "Show me" : "Later"
-      color: actionMouse.containsMouse ? root.accent : root.dim
-      font.family: Style.font.family
-      font.pixelSize: Style.font.bodySmall
-      font.underline: actionMouse.containsMouse
-      MouseArea {
-        id: actionMouse
-        anchors.fill: parent
-        anchors.margins: -Style.space(8)
-        hoverEnabled: true
-        cursorShape: Qt.PointingHandCursor
-        onClicked: lesson.checkIn ? lesson.reveal() : lesson.later()
-      }
     }
   }
 
@@ -428,7 +537,7 @@ BarWidget {
     bar: root.bar
     open: root.opened
     focusTarget: keyCatcher
-    contentWidth: panel.fittedContentWidth(Style.space(470))
+    contentWidth: panel.fittedContentWidth(Style.space(540))
     contentHeight: panel.fittedContentHeight(column.implicitHeight, Style.space(900))
 
     PanelKeyCatcher {
@@ -550,7 +659,7 @@ BarWidget {
               Text {
                 width: parent.width
                 wrapMode: Text.WordWrap
-                text: "Not sure yet? That's how it sticks. This shortcut steps aside and comes back as a quick check-in while you work: in 10 minutes, then 1 hour, 5 hours, 1 day, 5 days and 25 days."
+                text: "Not sure yet? That's how it sticks. Practice moves this shortcut aside and comes back as a quick check-in while you work: in 10 minutes, then 1 hour, 5 hours, 1 day, 5 days and 25 days."
                 color: root.fg
                 font.family: Style.font.family
                 font.pixelSize: Style.font.bodySmall
@@ -566,7 +675,7 @@ BarWidget {
               Text {
                 width: parent.width
                 wrapMode: Text.WordWrap
-                text: "Know it at a check-in and it moves to the next gap. Forget, and it comes back sooner. Pass all six and it's locked in. Press Later as often as you like."
+                text: "Remember it at a check-in and it moves to the next gap. Forget, and it comes back sooner. Pass all six and it's locked in."
                 color: root.dim
                 font.family: Style.font.family
                 font.pixelSize: Style.font.bodySmall
@@ -595,6 +704,50 @@ BarWidget {
           Repeater {
             model: root.current
             delegate: Lesson {}
+          }
+
+          // Undo for the last "I know it", in case it was a slip.
+          Item {
+            width: parent.width
+            height: visible ? undoText.implicitHeight + Style.space(10) : 0
+            visible: root.undoTitle !== ""
+            Text {
+              id: undoText
+              anchors.left: parent.left
+              anchors.leftMargin: Style.space(8)
+              anchors.right: undoLink.left
+              anchors.rightMargin: Style.space(10)
+              anchors.verticalCenter: parent.verticalCenter
+              elide: Text.ElideRight
+              text: "✓ Marked “" + root.undoTitle + "” as known"
+              color: root.dim
+              font.family: Style.font.family
+              font.pixelSize: Style.font.bodySmall
+            }
+            Text {
+              id: undoLink
+              anchors.right: parent.right
+              anchors.rightMargin: Style.space(8)
+              anchors.verticalCenter: parent.verticalCenter
+              text: "Undo"
+              color: undoMouse.containsMouse ? root.fg : root.accent
+              font.family: Style.font.family
+              font.pixelSize: Style.font.bodySmall
+              font.bold: true
+              font.underline: undoMouse.containsMouse
+              MouseArea {
+                id: undoMouse
+                anchors.fill: parent
+                anchors.margins: -Style.space(6)
+                hoverEnabled: true
+                cursorShape: Qt.PointingHandCursor
+                onClicked: {
+                  root.commit(root.undoArgs, "")
+                  root.flush()
+                  root.undoTitle = ""
+                }
+              }
+            }
           }
 
           Text {

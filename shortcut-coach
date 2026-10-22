@@ -16,6 +16,7 @@
   shortcut-coach batch N                 how many to show in up next (default 6)
   shortcut-coach done-section N          check off a whole section (1-5; 0 = added for you)
   shortcut-coach reset                   start over (keeps lessons you added)
+  shortcut-coach apply JSON              run several commands in order, e.g. '[["done","close"]]'
 
 Lessons are grouped into sections, Essentials first. "Up next" walks them in
 order; any lesson can be checked off from its section.
@@ -30,7 +31,7 @@ Progress lives in ~/.local/state/omarchy-shortcut-coach.json. Each lesson
 shows the keys from your live Hyprland bindings, so rebound shortcuts show
 your keys.
 """
-import datetime, json, os, re, subprocess, sys, tempfile
+import datetime, fcntl, json, os, re, subprocess, sys, tempfile
 
 HERE = os.path.dirname(os.path.realpath(__file__))
 # SHORTCUT_COACH_STATE points tests at a scratch file, never your progress.
@@ -181,6 +182,12 @@ def main(argv):
     cmd, args = argv[0], argv[1:]
     s = load_state()
 
+    if cmd == "apply" and args:
+        # Several answers from the panel, saved in order.
+        for step in json.loads(args[0]):
+            main([str(a) for a in step])
+        return 0
+
     if cmd == "list":
         p = progress(s)
         if "--json" in args:
@@ -313,5 +320,13 @@ def main(argv):
     return 1
 
 
+def locked_main(argv):
+    """One writer at a time: the panel, the check-in card and you."""
+    os.makedirs(os.path.dirname(STATE), exist_ok=True)
+    with open(STATE + ".lock", "w") as lock:
+        fcntl.flock(lock, fcntl.LOCK_EX)
+        return main(argv)
+
+
 if __name__ == "__main__":
-    sys.exit(main(sys.argv[1:]))
+    sys.exit(locked_main(sys.argv[1:]))

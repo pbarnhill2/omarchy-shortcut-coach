@@ -50,6 +50,7 @@ Item {
 
   // Record an answer; the script replies with when it comes back.
   function answer(result) {
+    if (answerProc.running) return
     linger.stop()
     answerProc.command = [root.cli, "checkin", item.id, result]
     answerProc.running = true
