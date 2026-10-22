@@ -15,7 +15,8 @@
   shortcut-coach remove ID               delete one you added
   shortcut-coach batch N                 how many to show in up next (default 6)
   shortcut-coach done-section N          check off a whole section (1-5; 0 = added for you)
-  shortcut-coach reset                   start over (keeps lessons you added)
+  shortcut-coach reset --yes             start over (keeps lessons you added;
+                                         the old progress is kept in a .bak file)
   shortcut-coach apply JSON              run several commands in order, e.g. '[["done","close"]]'
 
 Lessons are grouped into sections, Essentials first. "Up next" walks them in
@@ -72,8 +73,23 @@ def load_state():
     return s
 
 
+def backup_state():
+    """Keep a copy of yesterday's progress (and the one before a reset)."""
+    backup = STATE + ".bak"
+    try:
+        if not os.path.exists(STATE):
+            return
+        if os.path.exists(backup) and now().timestamp() - os.path.getmtime(backup) < 86400:
+            return
+        with open(STATE) as src, open(backup, "w") as dst:
+            dst.write(src.read())
+    except OSError:
+        pass
+
+
 def save_state(s):
     os.makedirs(os.path.dirname(STATE), exist_ok=True)
+    backup_state()
     fd, tmp = tempfile.mkstemp(dir=os.path.dirname(STATE), prefix=".shortcut-coach.")
     with os.fdopen(fd, "w") as f:
         json.dump(s, f, indent=2)
@@ -333,6 +349,15 @@ def main(argv):
         return 0
 
     if cmd == "reset":
+        if "--yes" not in args:
+            print("This erases your progress. Run: shortcut-coach reset --yes", file=sys.stderr)
+            print(f"(A copy is kept at {STATE}.bak)", file=sys.stderr)
+            return 1
+        # Always keep the progress being erased.
+        try:
+            os.replace(STATE, STATE + ".bak")
+        except OSError:
+            pass
         s["mastered"] = {}
         s["practice"] = {}
         s["introSeen"] = False

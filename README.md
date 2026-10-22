@@ -92,7 +92,7 @@ $coach later <id>         # start practice
 $coach done-section 2     # tick a whole section
 $coach pause on           # pause check-ins
 $coach batch 8            # show 8 in up next (default 6)
-$coach reset              # start over (keeps lessons you added)
+$coach reset --yes        # start over (keeps lessons you added)
 ```
 
 Run `$coach help` for the full list.
@@ -100,7 +100,8 @@ Run `$coach help` for the full list.
 ## Privacy
 
 Everything stays on your machine. Progress lives in
-`~/.local/state/omarchy-shortcut-coach.json`. The plugin makes no network
+`~/.local/state/omarchy-shortcut-coach.json`, with a daily backup beside it
+(`.bak`); updating the plugin keeps your progress. The plugin makes no network
 requests and records nothing about what you type; it only checks whether
 you've been idle for a few seconds, using the same Wayland idle signal as
 Omarchy's screen lock.
