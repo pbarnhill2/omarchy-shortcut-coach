@@ -1,0 +1,142 @@
+#!/usr/bin/env python3
+"""Shortcut Coach: a checklist of Omarchy shortcuts you're learning.
+
+  shortcut-coach list [--all] [--json]   what you're learning now (--all: everything)
+  shortcut-coach add KEYS TITLE [WHY]    add your own shortcut to the front of the queue
+  shortcut-coach done ID                 check one off (mastered)
+  shortcut-coach undo ID                 put a mastered one back
+  shortcut-coach remove ID               delete one you added
+  shortcut-coach batch N                 how many to learn at once (default 6)
+
+Progress lives in ~/.local/state/omarchy-shortcut-coach.json. The built-in
+lessons come from curriculum.json next to this script; each lesson shows the
+keys from your live Hyprland bindings, so rebound shortcuts show your keys.
+"""
+import datetime, json, os, re, subprocess, sys, tempfile
+
+HERE = os.path.dirname(os.path.realpath(__file__))
+STATE = os.path.expanduser("~/.local/state/omarchy-shortcut-coach.json")
+FAMILY = re.compile(r"ARROWS|1-9|/")
+
+
+def load_state():
+    try:
+        with open(STATE) as f:
+            s = json.load(f)
+    except (OSError, ValueError):
+        s = {}
+    s.setdefault("mastered", {})
+    s.setdefault("custom", [])
+    s.setdefault("batch", 6)
+    return s
+
+
+def save_state(s):
+    os.makedirs(os.path.dirname(STATE), exist_ok=True)
+    fd, tmp = tempfile.mkstemp(dir=os.path.dirname(STATE), prefix=".shortcut-coach.")
+    with os.fdopen(fd, "w") as f:
+        json.dump(s, f, indent=2)
+        f.write("\n")
+    os.replace(tmp, STATE)
+
+
+def live_bindings():
+    """Map action description -> keys, from Omarchy's own keybinding list."""
+    try:
+        out = subprocess.run(["omarchy-menu-keybindings", "--print"], capture_output=True,
+                             text=True, timeout=5).stdout
+    except (OSError, subprocess.TimeoutExpired):
+        return None
+    found = {}
+    for line in out.splitlines():
+        if "→" not in line:
+            continue
+        keys, action = (part.strip() for part in line.split("→", 1))
+        found.setdefault(action, re.sub(r"\s+", " ", keys))
+    return found or None
+
+
+def lessons(s):
+    live = live_bindings()
+    items = [dict(c, custom=True) for c in s["custom"]]
+    with open(os.path.join(HERE, "curriculum.json")) as f:
+        for c in json.load(f):
+            if live is not None:
+                if c["action"] not in live:
+                    continue  # not bound on this machine
+                if not FAMILY.search(c["keys"]):
+                    c["keys"] = live[c["action"]]
+            items.append(dict(c, custom=False))
+    for item in items:
+        item["mastered"] = s["mastered"].get(item["id"])
+    return items
+
+
+def slug(text):
+    return "my-" + (re.sub(r"[^a-z0-9]+", "-", text.lower()).strip("-") or "shortcut")
+
+
+def main(argv):
+    if not argv or argv[0] in ("-h", "--help", "help"):
+        print(__doc__.strip())
+        return 0
+    cmd, args = argv[0], argv[1:]
+    s = load_state()
+
+    if cmd == "list":
+        items = lessons(s)
+        learning = [i for i in items if not i["mastered"]]
+        if "--json" in args:
+            print(json.dumps({"batch": s["batch"], "learning": learning,
+                              "mastered": [i for i in items if i["mastered"]]}))
+            return 0
+        shown = learning if "--all" in args else learning[: s["batch"]]
+        for i in shown:
+            print(f"[ ] {i['keys']:<26} {i['title']}  ({i['id']})")
+        if "--all" in args:
+            for i in items:
+                if i["mastered"]:
+                    print(f"[x] {i['keys']:<26} {i['title']}  ({i['id']}, {i['mastered']})")
+        print(f"\n{sum(1 for i in items if i['mastered'])} mastered, {len(learning)} to go")
+        return 0
+
+    if cmd == "add" and len(args) >= 2:
+        keys, title = args[0].strip(), args[1].strip()
+        why = args[2].strip() if len(args) > 2 else ""
+        ids = {c["id"] for c in s["custom"]}
+        new_id, n = slug(title), 2
+        while new_id in ids:
+            new_id, n = f"{slug(title)}-{n}", n + 1
+        s["custom"].append({"id": new_id, "keys": keys, "title": title, "why": why,
+                            "added": datetime.date.today().isoformat()})
+        save_state(s)
+        print(new_id)
+        return 0
+
+    if cmd == "done" and args:
+        s["mastered"][args[0]] = datetime.date.today().isoformat()
+        save_state(s)
+        return 0
+
+    if cmd == "undo" and args:
+        s["mastered"].pop(args[0], None)
+        save_state(s)
+        return 0
+
+    if cmd == "remove" and args:
+        s["custom"] = [c for c in s["custom"] if c["id"] != args[0]]
+        s["mastered"].pop(args[0], None)
+        save_state(s)
+        return 0
+
+    if cmd == "batch" and args and args[0].isdigit() and int(args[0]) > 0:
+        s["batch"] = int(args[0])
+        save_state(s)
+        return 0
+
+    print(__doc__.strip(), file=sys.stderr)
+    return 1
+
+
+if __name__ == "__main__":
+    sys.exit(main(sys.argv[1:]))

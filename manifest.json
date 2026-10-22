@@ -1,0 +1,23 @@
+{
+  "schemaVersion": 1,
+  "id": "pbarnhill.shortcut-coach",
+  "name": "Shortcut Coach",
+  "version": "0.1.0",
+  "author": "Patrick Barnhill",
+  "license": "MIT",
+  "description": "Learn Omarchy shortcuts a few at a time. A short checklist in the bar; check one off when you know it and the next one takes its place.",
+  "kinds": ["bar-widget"],
+  "entryPoints": {
+    "barWidget": "BarWidget.qml"
+  },
+  "barWidget": {
+    "displayName": "Shortcut Coach",
+    "description": "A checklist of shortcuts you're learning. Click to open; check one off when you know it.",
+    "category": "Info",
+    "allowMultiple": false,
+    "defaultSection": "right",
+    "defaults": {
+      "batchSize": 6
+    }
+  }
+}
