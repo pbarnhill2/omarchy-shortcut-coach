@@ -156,11 +156,17 @@ def lessons(s, cur):
                 c["keys"] = live[c["action"]]
         # Variants taught in the same lesson ("add Alt to stay put") name
         # their keys as {name} in the tip and the explanation.
-        for name, (action, fallback) in c.pop("variants", {}).items():
+        # The panel shows them nested under the main keys, as one lesson.
+        nested = []
+        for name, spec in c.pop("variants", {}).items():
+            action, fallback = spec[0], spec[1]
             keys = fallback if live is None or action not in live or FAMILY.search(fallback) else live[action]
+            if len(spec) > 2:
+                nested.append({"keys": keys, "label": spec[2]})
             for field in ("why", "more"):
                 if c.get(field):
                     c[field] = c[field].replace("{" + name + "}", prose_keys(keys))
+        c["variants"] = nested
         items.append(dict(c, custom=False, section=names.get(str(c["level"]), "")))
     # Longer explanations name other shortcuts as {lesson-id}; fill in the
     # keys this machine actually uses.

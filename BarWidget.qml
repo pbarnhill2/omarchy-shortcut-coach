@@ -446,8 +446,9 @@ BarWidget {
     id: keysChip
     property string keys: ""
     property bool muted: false
-    width: keysLabel.implicitWidth + Style.space(12)
-    height: Style.space(20)
+    property bool small: false
+    width: keysLabel.implicitWidth + Style.space(small ? 10 : 12)
+    height: Style.space(small ? 18 : 20)
     radius: Style.space(4)
     color: Qt.rgba(root.accent.r, root.accent.g, root.accent.b, muted ? 0.08 : 0.16)
     Text {
@@ -456,8 +457,54 @@ BarWidget {
       text: keysChip.keys
       color: keysChip.muted ? root.dim : root.accent
       font.family: Style.font.family
-      font.pixelSize: Style.font.bodySmall
+      font.pixelSize: keysChip.small ? Style.font.caption : Style.font.bodySmall
       font.bold: true
+    }
+  }
+
+  // Variants taught with a lesson, nested under its keys:
+  // └ SUPER SHIFT ALT + 1-9  …and stay where you are · …
+  component Nested: Row {
+    id: nested
+    property var variants: []
+    property bool muted: false
+    spacing: Style.space(6)
+    clip: true
+    Text {
+      anchors.verticalCenter: parent.verticalCenter
+      text: "└"
+      color: root.dim
+      font.family: Style.font.family
+      font.pixelSize: Style.font.bodySmall
+    }
+    Repeater {
+      model: nested.variants
+      delegate: Row {
+        required property var modelData
+        required property int index
+        spacing: Style.space(6)
+        Text {
+          visible: index > 0
+          anchors.verticalCenter: parent.verticalCenter
+          text: "·"
+          color: root.dim
+          font.family: Style.font.family
+          font.pixelSize: Style.font.bodySmall
+        }
+        Keys {
+          small: true
+          muted: nested.muted
+          keys: modelData.keys
+          anchors.verticalCenter: parent.verticalCenter
+        }
+        Text {
+          anchors.verticalCenter: parent.verticalCenter
+          text: modelData.label
+          color: root.dim
+          font.family: Style.font.family
+          font.pixelSize: Style.font.bodySmall
+        }
+      }
     }
   }
 
@@ -740,8 +787,20 @@ BarWidget {
       }
     }
 
-    // Line 2: one line, always, so the row never changes height.
+    // Line 2: one line, always, so the row never changes height. A lesson
+    // with variants shows them here, nested under its keys; its tip moves to
+    // the ⓘ. On a check-in they stay hidden until Show me.
+    readonly property bool showNested: (item.variants || []).length > 0 && !trying && !(checkIn && !revealed)
+    Nested {
+      visible: row.showNested
+      x: root.textCol
+      y: line1.y + line1.height + Style.space(5)
+      width: line1.width
+      height: Style.space(18)
+      variants: row.item.variants || []
+    }
     Text {
+      visible: !row.showNested
       x: root.textCol
       y: line1.y + line1.height + Style.space(5)
       width: line1.width
@@ -763,9 +822,10 @@ BarWidget {
     required property var modelData
     readonly property var item: modelData || ({})
     readonly property bool mastered: !!item.mastered
+    readonly property bool hasNested: (item.variants || []).length > 0
     property bool ticking: false
     width: parent ? parent.width : 0
-    height: Style.space(32)
+    height: Style.space(hasNested ? 54 : 32)
 
     function toggle() {
       if (ticking) return
@@ -788,7 +848,7 @@ BarWidget {
       id: sbox
       x: Style.space(30)
       size: Style.space(16)
-      anchors.verticalCenter: parent.verticalCenter
+      y: (Style.space(32) - height) / 2
       checked: srow.mastered || srow.ticking
       pop: srow.ticking
       hintText: srow.mastered ? "Not sure after all? Unmark it"
@@ -799,7 +859,7 @@ BarWidget {
     Keys {
       id: skeys
       x: Style.space(58)
-      anchors.verticalCenter: parent.verticalCenter
+      y: (Style.space(32) - height) / 2
       keys: srow.item.keys || ""
       muted: srow.mastered || srow.ticking
     }
@@ -808,7 +868,7 @@ BarWidget {
       x: skeys.x + skeys.width + Style.space(10)
       width: Math.min(implicitWidth, (note.visible ? note.x : sstar.x) - Style.space(10) - x
                                      - (sinfo.visible ? sinfo.width + Style.space(8) : 0))
-      anchors.verticalCenter: parent.verticalCenter
+      y: (Style.space(32) - height) / 2
       elide: Text.ElideRight
       text: srow.item.title || ""
       color: srow.mastered || srow.ticking ? root.dim : root.fg
@@ -816,24 +876,34 @@ BarWidget {
       font.pixelSize: Style.font.bodySmall
       font.strikeout: srow.mastered || srow.ticking
     }
+    // Variants, nested under the keys.
+    Nested {
+      visible: srow.hasNested
+      x: skeys.x
+      y: Style.space(32)
+      width: srow.width - x - Style.space(10)
+      height: Style.space(18)
+      variants: srow.item.variants || []
+      muted: srow.mastered || srow.ticking
+    }
     Info {
       id: sinfo
       lesson: srow.item
       x: stitle.x + stitle.width + Style.space(8)
-      anchors.verticalCenter: parent.verticalCenter
+      y: (Style.space(32) - height) / 2
     }
     Star {
       id: sstar
       lesson: srow.item
       x: srow.width - width - Style.space(10)
-      anchors.verticalCenter: parent.verticalCenter
+      y: (Style.space(32) - height) / 2
     }
     // In practice: how far along, and the next check-in.
     Text {
       id: note
       visible: !!srow.item.practicing && !srow.mastered && !srow.ticking
       x: sstar.x - width - Style.space(10)
-      anchors.verticalCenter: parent.verticalCenter
+      y: (Style.space(32) - height) / 2
       text: (srow.item.tricky ? "tricky · " : "") + "󰥔 " + srow.item.stage + "/" + srow.item.steps
             + (srow.item.backIn ? " · " + srow.item.backIn : " · now")
       color: root.dim

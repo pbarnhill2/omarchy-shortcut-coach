@@ -51,7 +51,7 @@
    "title": "Launch any app",
    "why": "Type an app name, Enter. Or click the top-left logo.",
    "level": 1,
-   "more": "Opens the Omarchy menu, the same one you get by clicking the Omarchy logo in the top-left corner of the screen.\n\nStart typing an app's name and press Enter to launch it. The menu also holds everything else Omarchy can do: settings, themes, installing apps, and more."
+   "more": "Opens the Omarchy menu, the same one you get by clicking the Omarchy logo in the top-left corner of the screen.\n\nStart typing to search: an app's name and Enter launches it. The search reaches inside the submenus too, so typing \"theme\" from the top takes you straight there.\n\nA good rule: learn the shortcuts you use often, and use the menu for the rest."
   },
   {
    "id": "close",
@@ -85,20 +85,21 @@
    "title": "Go to desktop 1 to 9",
    "why": "Or click a number at the top left.",
    "level": 1,
-   "more": "Omarchy calls them workspaces; think of them as separate desktops, each with its own windows. {workspace-switch} jumps straight to one (0 is the tenth).\n\nThe numbers at the top left of the bar, next to the Omarchy logo, are your desktops. The one you're on is highlighted, and clicking a number takes you there.\n\nA common setup is one desktop per kind of work, like email on 1, browser on 2 and terminals on 3. Then every app is always one key away."
+   "more": "Omarchy calls them workspaces; think of them as separate desktops, each with its own windows. {workspace-switch} jumps straight to one (0 is the tenth).\n\nThe numbers at the top left of the bar, next to the Omarchy logo, are your desktops. The one you're on is highlighted, and clicking a number takes you there.\n\nGive each desktop a job and keep it, like browser and chat on 1, terminals on 2, email on 3. Because tiling keeps every window in view, you're never hunting for windows: each app is one key away."
   },
   {
    "id": "workspace-move",
    "action": "Move window to workspace 1",
    "keys": "SUPER SHIFT + 1-9",
-   "title": "Send a window to another desktop",
+   "title": "Send a window to a desktop",
    "why": "You go along. Add Alt and you stay put.",
    "level": 1,
    "more": "The pattern: Super + a number goes to a desktop. Add Shift and the window you're in goes there too, and you go with it. Add Alt as well ({stay}) and the window goes on without you.\n\nThe Alt version is handy for clearing your desk: push a finished terminal to desktop 9 to deal with later.",
    "variants": {
     "stay": [
      "Move window silently to workspace 1",
-     "SUPER SHIFT ALT + 1-9"
+     "SUPER SHIFT ALT + 1-9",
+     "…and stay where you are"
     ]
    }
   },
@@ -113,7 +114,8 @@
    "variants": {
     "wide": [
      "Full width",
-     "SUPER ALT + F"
+     "SUPER ALT + F",
+     "full width, bar kept"
     ]
    }
   },
@@ -123,7 +125,8 @@
    "keys": "PRINT",
    "title": "Screenshot",
    "why": "Pick an area, a window or the whole screen.",
-   "level": 1
+   "level": 1,
+   "more": "Pick an area, a window or the whole screen. The screenshot is copied to your clipboard and saved.\n\nTo mark it up, click the notification that pops up (or press Super + Alt + Comma) and it opens in an editor."
   },
   {
    "id": "theme-menu",
@@ -141,7 +144,7 @@
    "title": "Change the wallpaper",
    "why": "Each theme brings its own set.",
    "level": 2,
-   "more": "Opens the wallpaper picker for the theme you're using. Click one and it's set.\n\nTo add your own pictures, use the Omarchy menu: Install › Style › Background opens the folder they go in."
+   "more": "Opens the wallpaper picker for the theme you're using. Click one and it's set.\n\nShortcut with the mouse: double-click an empty spot on the desktop opens the same picker, and double-clicking with the right button opens the theme switcher.\n\nTo add your own pictures, use the Omarchy menu: Install › Style › Background opens the folder they go in. They belong to the current theme."
   },
   {
    "id": "theme-install",
@@ -179,13 +182,22 @@
    "level": 2
   },
   {
+   "action": "Toggle single-window square aspect",
+   "keys": "SUPER CTRL + BACKSPACE",
+   "title": "Stop a lone window stretching",
+   "why": "Keeps one window from spanning a wide screen.",
+   "more": "On a wide monitor, a single window on a desktop stretches edge to edge, which makes text lines long and hard to read. {single-window} keeps a lone window to a squarer shape in the middle. Press it again to undo.",
+   "id": "single-window",
+   "level": 2
+  },
+  {
    "id": "bar-position",
    "menu": true,
    "keys": "MENU › STYLE › MENU BAR",
    "level": 2,
    "title": "Move the bar",
    "why": "Top, bottom, left or right.",
-   "more": "In the Omarchy menu ({launcher}), Style › Menu Bar › Position puts the bar on any edge of the screen. The same menu can make the bar transparent.\n\nTo hide it for a moment instead, use {toggle-bar}."
+   "more": "In the Omarchy menu ({launcher}), Style › Menu Bar › Position puts the bar on any edge of the screen. The same menu can make the bar transparent.\n\nTo hide it for a moment instead, use {toggle-bar}.\n\nDouble-click an empty part of the bar to make it see-through, and again to undo."
   },
   {
    "id": "nightlight",
@@ -197,13 +209,39 @@
    "more": "Shifts the screen toward warm colors, easier on the eyes at night. Press it again to switch it off."
   },
   {
+   "menu": true,
+   "keys": "MENU › INSTALL › WEB APP",
+   "title": "Websites as apps",
+   "variants": {
+    "x": [
+     "X",
+     "SUPER SHIFT + X",
+     "X"
+    ],
+    "yt": [
+     "YouTube",
+     "SUPER SHIFT + Y",
+     "YouTube"
+    ],
+    "mail": [
+     "Email",
+     "SUPER SHIFT + E",
+     "email"
+    ]
+   },
+   "why": "Your everyday sites, each with its own window and key.",
+   "more": "Omarchy has no dock. Instead, the sites you use every day become apps: their own window, no browser tabs or address bar, and their own shortcut. It's how DHH runs X, YouTube, email and his calendar.\n\nA few come set up: {x} opens X, {yt} YouTube, {mail} email.\n\nMake your own from any web address in the Omarchy menu ({launcher}): Install › Web App, then give it a name and the address. It shows up in the app launcher like any other app.",
+   "id": "webapps",
+   "level": 3
+  },
+  {
    "id": "clipboard",
    "action": "Clipboard manager",
    "keys": "SUPER CTRL + V",
    "title": "Clipboard history",
    "why": "Everything you've copied lately.",
    "level": 3,
-   "more": "Omarchy keeps a history of what you copy. {clipboard} opens it; pick an entry to paste it.\n\nRelated: Super + C and Super + V copy and paste the same way in every app, terminals included, where Ctrl + C would stop a running program."
+   "more": "Omarchy keeps a history of what you copy. {clipboard} opens it; pick an entry to paste it.\n\nRelated: Super + C and Super + V copy and paste the same way in every app, terminals included, where Ctrl + C would stop a running program.\n\nTo remove one entry, like a password you copied, highlight it and press Delete. Shift + Delete clears the whole history."
   },
   {
    "id": "alt-tab",
@@ -235,7 +273,8 @@
    "keys": "SUPER + COMMA",
    "title": "Dismiss a notification",
    "why": "Add Shift to clear them all.",
-   "level": 3
+   "level": 3,
+   "more": "Dismisses the newest notification. Add Shift to clear them all.\n\nWith the mouse, right-click a notification to dismiss it, or click it to open whatever it's about."
   },
   {
    "id": "panels",
@@ -246,15 +285,35 @@
    "variants": {
     "audio": [
      "Audio",
-     "SUPER CTRL + A"
+     "SUPER CTRL + A",
+     "sound"
     ],
     "bt": [
      "Bluetooth",
-     "SUPER CTRL + B"
+     "SUPER CTRL + B",
+     "Bluetooth"
     ]
    },
    "why": "Same as the icons at the top right.",
    "more": "These open the same panels as clicking the network, sound and Bluetooth icons on the right side of the top bar:\n\n- Network: Wi-Fi networks and wired connection.\n- Sound ({audio}): volume, and which speakers, headset or microphone to use.\n- Bluetooth ({bt}): pair and connect devices.\n\nPress the same keys again, or Escape, to close a panel."
+  },
+  {
+   "action": "Toggle locking on idle",
+   "keys": "SUPER CTRL + I",
+   "title": "Stay awake",
+   "why": "No screen lock during a movie or talk. Again to undo.",
+   "more": "Normally Omarchy dims and locks the screen when you've been away for a few minutes. {stay-awake} turns that off, for a movie, a presentation or a long read. Press it again to turn locking back on.",
+   "id": "stay-awake",
+   "level": 3
+  },
+  {
+   "action": "Apps menu",
+   "keys": "SUPER ALT + SPACE",
+   "title": "Uninstall an app",
+   "why": "In the apps menu, highlight it and press Delete.",
+   "more": "Remove an app right where you open it. {uninstall} opens the apps menu; move to the app and press Delete, then confirm. It works for regular apps and web apps alike.\n\nThe Omarchy menu ({launcher}) has the same under Remove.",
+   "id": "uninstall",
+   "level": 3
   },
   {
    "id": "lock",
@@ -293,7 +352,8 @@
    "variants": {
     "put": [
      "Move window to scratchpad",
-     "SUPER ALT + S"
+     "SUPER ALT + S",
+     "put a window in"
     ]
    }
   },
@@ -308,11 +368,13 @@
    "variants": {
     "next": [
      "Next window in group",
-     "SUPER ALT + TAB"
+     "SUPER ALT + TAB",
+     "next tab"
     ],
     "out": [
      "Move active window out of group",
-     "SUPER ALT + G"
+     "SUPER ALT + G",
+     "take one out"
     ]
    }
   },
@@ -333,6 +395,15 @@
    "why": "Shift: height. Alt: a little. Ctrl: a lot.",
    "level": 4,
    "more": "Super + Minus and Super + Equal change the width of the window you're in. Add Shift to change the height, Alt to move a little, and Ctrl to move a lot.\n\nWith the mouse, use {mouse-resize}."
+  },
+  {
+   "action": "Capture menu",
+   "keys": "SUPER CTRL + C",
+   "title": "Every capture in one menu",
+   "why": "Screenshot, recording and copy-text-from-screen.",
+   "more": "One menu for everything you can capture: screenshots, screen recordings and grabbing text off the screen. Handy until the individual keys stick.",
+   "id": "capture",
+   "level": 5
   },
   {
    "id": "ocr",
@@ -357,6 +428,24 @@
    "keys": "SUPER + PRINT",
    "title": "Grab any color on screen",
    "why": "Click a pixel; its hex code is copied.",
+   "level": 5
+  },
+  {
+   "action": "Activity",
+   "keys": "SUPER CTRL + T",
+   "title": "See what's using your computer",
+   "why": "Omarchy's task manager.",
+   "more": "Shows what's running and how much processor, memory and disk each thing uses. The place to look when the computer feels slow or the fans spin up.",
+   "id": "activity",
+   "level": 5
+  },
+  {
+   "menu": true,
+   "keys": "MENU › UPDATE › HARDWARE",
+   "title": "Fix stuck Wi-Fi, sound or Bluetooth",
+   "why": "Restart just that piece instead of rebooting.",
+   "more": "When Wi-Fi drops, sound goes silent or Bluetooth won't connect, restart just that part. In the Omarchy menu ({launcher}): Update › Hardware, then Wi-Fi, Audio, Bluetooth or Trackpad.\n\nIf the bar or notifications misbehave, Update › Process › Shell restarts them. Either way, it's quicker than a reboot.",
+   "id": "restart-stuck",
    "level": 5
   },
   {
