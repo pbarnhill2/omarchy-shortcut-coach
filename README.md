@@ -1,6 +1,7 @@
 # Shortcut Coach
 
-Learn Omarchy's keyboard shortcuts a few at a time, without leaving your work.
+Learn Omarchy's keyboard shortcuts the way Pimsleur teaches languages: a few
+at a time, with spaced recall, without leaving your work.
 
 ![Shortcut Coach](preview.png)
 

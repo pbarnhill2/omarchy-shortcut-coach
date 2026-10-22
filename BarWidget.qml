@@ -1204,7 +1204,7 @@ BarWidget {
             Text {
               width: parent.width
               wrapMode: Text.WordWrap
-              text: "Try the shortcut once now. Then it steps aside and comes back as a quick check-in while you work: after 10 minutes, 1 hour, 1 day, 4 days, 2 weeks and 6 weeks."
+              text: "This is spaced recall, the method behind Pimsleur's language courses. Try the shortcut once now. Then it steps aside and comes back as a quick check-in while you work: after 10 minutes, 1 hour, 1 day, 4 days, 2 weeks and 6 weeks."
               color: root.fg
               font.family: Style.font.family
               font.pixelSize: Style.font.bodySmall
@@ -1213,7 +1213,7 @@ BarWidget {
             Text {
               width: parent.width
               wrapMode: Text.WordWrap
-              text: "Each time you recall a shortcut just as it starts to fade, the memory lasts longer, so check-ins get further apart. It's Pimsleur's graduated interval recall, tuned with later research: recalling beats re-reading, and a night's sleep helps it stick."
+              text: "Each time you recall a shortcut just as it starts to fade, the memory lasts longer, so check-ins get further apart. The gaps follow Pimsleur's graduated interval recall, tuned with later research: recalling beats re-reading, and a night's sleep helps it stick."
               color: root.dim
               font.family: Style.font.family
               font.pixelSize: Style.font.bodySmall
@@ -1266,11 +1266,31 @@ BarWidget {
             y: Style.space(20)
             width: parent.width - Style.space(40)
             spacing: Style.space(12)
+            // The hook first: what this is built on, in two lines.
             Text {
-              text: "Set up a practice desktop"
+              width: parent.width
+              wrapMode: Text.WordWrap
+              text: "Learn shortcuts the way Pimsleur teaches languages"
               color: root.accent
               font.family: Style.font.family
               font.pixelSize: Style.font.body + 3
+              font.bold: true
+            }
+            Text {
+              width: parent.width
+              wrapMode: Text.WordWrap
+              text: "Shortcut Coach uses spaced recall, the memory method behind Pimsleur's language courses: you recall each shortcut just as it starts to fade, and every time it sticks for longer. It's one of the best-supported findings in memory research."
+              color: root.fg
+              font.family: Style.font.family
+              font.pixelSize: Style.font.bodySmall
+              lineHeight: 1.3
+            }
+            Rectangle { width: parent.width; height: 1; color: root.faint }
+            Text {
+              text: "First, set up a practice desktop"
+              color: root.fg
+              font.family: Style.font.family
+              font.pixelSize: Style.font.body + 1
               font.bold: true
             }
             Repeater {
