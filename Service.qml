@@ -5,12 +5,13 @@ import Quickshell.Wayland
 import qs.Commons
 import qs.Commons as Commons
 
-// Shortcut Coach check-ins. Once a minute, while you're at the computer, it
-// asks the script whether a shortcut in practice is due. If one is, a small
-// card slides in under the bar: "Do you remember how to ...?" with "I know
-// it" and "Show me". The card never takes keyboard focus, waits out
-// fullscreen apps and idle time, and leaves at least eight minutes between
-// check-ins. Ignoring it asks again in 15 minutes.
+// Shortcut Coach check-ins. While you're at the computer, it asks the script
+// whether a shortcut in practice is due. If one is, a small card slides in
+// under the bar: "Do you remember how to ...?" with "I know it" and "Show
+// me". It waits for a pause in your typing (interruptions at a natural break
+// cost the least), never takes keyboard focus, skips fullscreen apps and
+// time away, and leaves at least 15 minutes between check-ins; the script
+// caps them at 8 a day. Ignoring it asks again in 15 minutes.
 Item {
   id: root
 
@@ -19,7 +20,7 @@ Item {
   property var manifest: null
 
   readonly property string cli: String(Qt.resolvedUrl("shortcut-coach")).replace("file://", "")
-  readonly property int gapMs: 8 * 60 * 1000
+  readonly property int gapMs: 15 * 60 * 1000
   readonly property int lingerMs: 45 * 1000
 
   property var item: null
@@ -27,14 +28,17 @@ Item {
   property bool revealed: false
   property string message: ""
   property real lastShown: 0
+  // Away from the computer: no check-ins.
   property bool idle: idleMonitor.isIdle
+  // A few seconds without input: a natural pause to ask in.
+  property bool paused: pauseMonitor.isIdle
 
   readonly property color fg: Commons.Color.popups.text
   readonly property color dim: Qt.darker(fg, 1.6)
   readonly property color accent: Commons.Color.accent
 
   function check() {
-    if (showing || idle || dueProc.running) return
+    if (showing || idle || !paused || dueProc.running) return
     if (Date.now() - lastShown < gapMs) return
     dueProc.running = true
   }
@@ -65,6 +69,13 @@ Item {
     id: idleMonitor
     timeout: 120
     respectInhibitors: false
+  }
+
+  IdleMonitor {
+    id: pauseMonitor
+    timeout: 4
+    respectInhibitors: false
+    onIsIdleChanged: if (isIdle) root.check()
   }
 
   Timer {
@@ -122,7 +133,7 @@ Item {
         if (result === "skip") { root.hide(); return }
         if (result === "fail") return  // the card stays open showing the keys
         root.message = reply === "locked in" ? "🔒  Locked in. That one's yours."
-                                             : "Nice. Next check-in " + reply.replace("back ", "") + "."
+                                             : "Nice. Next check-in " + reply.replace("back ", "") + ". Each one waits longer."
         closeAfterMessage.restart()
       }
     }

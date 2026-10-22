@@ -295,6 +295,8 @@ BarWidget {
     // ask; in a section the checkbox always means "I know it".
     readonly property bool checkIn: !!item.checkIn && !compact
     property bool revealed: false
+    // Practice starts with one real try, before the first check-in.
+    property bool trying: false
     // Ticked and celebrating (confetti, strike, fade).
     property bool celebrating: false
     // Leaving for practice: slides away, the checkbox stays empty.
@@ -305,7 +307,8 @@ BarWidget {
     // What the hovered button does, shown in place of the tip.
     readonly property string hint: doneMouse.containsMouse
         ? (mastered ? "Not sure after all? Unmark it" : "I know it: mark it as known")
-        : practicePill.hovered ? "Not sure yet: practice it. First check-in in 10 minutes"
+        : practicePill.hovered ? "Not sure yet: try it once, then quick check-ins while you work"
+        : triedPill.hovered ? "First check-in in about 10 minutes"
         : rememberPill.hovered ? "Remembered: on to the next, longer gap"
         : showPill.hovered ? "Show the keys. It comes back in 10 minutes"
         : ""
@@ -325,10 +328,15 @@ BarWidget {
       else celebration.start()
     }
 
-    // Not sure yet: practice it with spaced check-ins.
+    // Not sure yet: try it once now, then practice with spaced check-ins.
     function practice() {
       if (busy) return
       if (!root.introSeen) root.showIntro = true
+      trying = true
+    }
+
+    function tried() {
+      if (busy) return
       leaving = true
       root.commit(["later", item.id], "")
       leaveAnimation.start()
@@ -435,9 +443,16 @@ BarWidget {
 
       Pill {
         id: practicePill
-        visible: !lesson.checkIn
+        visible: !lesson.checkIn && !lesson.trying
         label: "󰥔 Practice"
         onClicked: lesson.practice()
+      }
+      Pill {
+        id: triedPill
+        visible: lesson.trying
+        primary: true
+        label: "✓ Tried it"
+        onClicked: lesson.tried()
       }
       Pill {
         id: rememberPill
@@ -514,11 +529,12 @@ BarWidget {
         width: parent.width
         visible: !lesson.compact && !lesson.mastered && text !== ""
         text: lesson.hint !== "" ? lesson.hint
+              : lesson.trying ? "Try it now: press " + lesson.item.keys + ". Doing it beats reading it."
               : lesson.checkIn && lesson.revealed ? "Try it now. " + (lesson.item.why || "")
               : lesson.checkIn ? "Check-in " + (lesson.item.stage + 1) + " of " + lesson.item.steps + ": do you remember the keys?"
               : (lesson.item.why || "")
         wrapMode: Text.WordWrap
-        color: lesson.hint !== "" ? root.accent : root.dim
+        color: lesson.hint !== "" || lesson.trying ? root.accent : root.dim
         font.family: Style.font.family
         font.pixelSize: Style.font.bodySmall
       }
@@ -531,7 +547,7 @@ BarWidget {
       anchors.right: parent.right
       anchors.rightMargin: Style.space(8)
       anchors.verticalCenter: parent.verticalCenter
-      text: "󰥔 " + lesson.item.stage + "/" + lesson.item.steps + (lesson.item.backIn ? " · " + lesson.item.backIn : " · now")
+      text: (lesson.item.tricky ? "tricky · " : "") + "󰥔 " + lesson.item.stage + "/" + lesson.item.steps + (lesson.item.backIn ? " · " + lesson.item.backIn : " · now")
       color: root.dim
       font.family: Style.font.family
       font.pixelSize: Style.font.caption
@@ -678,7 +694,7 @@ BarWidget {
               Text {
                 width: parent.width
                 wrapMode: Text.WordWrap
-                text: "Not sure yet? That's how it sticks. Practice moves this shortcut aside and comes back as a quick check-in while you work: in 10 minutes, then 1 hour, 5 hours, 1 day, 5 days and 25 days."
+                text: "Not sure yet? Try it once now. Then it steps aside and comes back as a quick check-in while you work: after 10 minutes, 1 hour, 1 day, 4 days, 2 weeks and 6 weeks."
                 color: root.fg
                 font.family: Style.font.family
                 font.pixelSize: Style.font.bodySmall
@@ -686,7 +702,7 @@ BarWidget {
               Text {
                 width: parent.width
                 wrapMode: Text.WordWrap
-                text: "This is graduated interval recall, the Pimsleur method. Each gap is about five times the last, so every check-in lands just before you'd forget. Remembering right at that edge is what moves a skill into long-term memory."
+                text: "Each time you recall a shortcut just as it starts to fade, the memory lasts longer than before, so check-ins get further apart. It's the idea behind Pimsleur's graduated interval recall, tuned with later research: recalling beats re-reading, and a night's sleep helps it stick."
                 color: root.dim
                 font.family: Style.font.family
                 font.pixelSize: Style.font.bodySmall
@@ -694,7 +710,7 @@ BarWidget {
               Text {
                 width: parent.width
                 wrapMode: Text.WordWrap
-                text: "Remember it at a check-in and it moves to the next gap. Forget, and it comes back sooner. Pass all six and it's locked in."
+                text: "Remember it and the next gap is longer. Forget, and it comes back sooner. Pass all six and it's locked in. Check-ins wait for a pause in your typing: at most one every 15 minutes, 8 a day."
                 color: root.dim
                 font.family: Style.font.family
                 font.pixelSize: Style.font.bodySmall

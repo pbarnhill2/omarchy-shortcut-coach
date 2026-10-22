@@ -21,11 +21,14 @@
 Lessons are grouped into sections, Essentials first. "Up next" walks them in
 order; any lesson can be checked off from its section.
 
-Practice follows graduated interval recall (the Pimsleur method): a shortcut
-you're unsure of comes back for a quick check-in after 10 minutes, then 1
-hour, 5 hours, 1 day, 5 days and 25 days. Each gap is about five times the
-last, so every check lands just before you'd forget. Pass the last one and
-it's locked in.
+Practice is expanding spaced retrieval, after Pimsleur's graduated interval
+recall (1967) and later work on spacing (Karpicke & Roediger 2007, Cepeda et
+al. 2008). A shortcut you're unsure of: try it once right away, then quick
+check-ins after 10 minutes, 1 hour, 1 day (a night's sleep in between), 4
+days, 2 weeks and 6 weeks. Each gap is about 3-4x the last. Pass the last
+one and it's locked in. A miss ("Show me") retries in 10 minutes and steps
+back (two steps from 2 weeks on); three misses mark it tricky. Check-ins
+come at least 15 minutes apart, at most 8 a day.
 
 Progress lives in ~/.local/state/omarchy-shortcut-coach.json. Each lesson
 shows the keys from your live Hyprland bindings, so rebound shortcuts show
@@ -37,10 +40,15 @@ HERE = os.path.dirname(os.path.realpath(__file__))
 # SHORTCUT_COACH_STATE points tests at a scratch file, never your progress.
 STATE = os.environ.get("SHORTCUT_COACH_STATE") or os.path.expanduser("~/.local/state/omarchy-shortcut-coach.json")
 FAMILY = re.compile(r"ARROWS|1-9|/")
-# Minutes until each check-in: 10m, 1h, 5h, 1d, 5d, 25d.
-STEPS = [10, 60, 300, 1440, 7200, 36000]
+# Minutes until each check-in: 10m, 1h, 1d, 4d, 2w, 6w. Expanding by ~3-4x,
+# near the best gap for each retention target (Cepeda et al. 2008); the 1d
+# step puts a night's sleep before the third check (Walker et al. 2002).
+STEPS = [10, 60, 1440, 5760, 20160, 60480]
 RETRY_MINUTES = 10   # after "show me"
-SKIP_MINUTES = 15    # check-in ignored or dismissed
+SKIP_MINUTES = 15    # check-in ignored or dismissed: no step change
+BIG_STEP_BACK_FROM = 4  # a miss at 2 weeks or later steps back two
+TRICKY_LAPSES = 3
+DAILY_CAP = 8        # check-ins shown per day
 
 
 def now():
@@ -59,6 +67,7 @@ def load_state():
     s.setdefault("practice", {})
     s.setdefault("paused", False)
     s.setdefault("introSeen", False)
+    s.setdefault("today", {"date": "", "count": 0})
     s.pop("snoozed", None)
     return s
 
@@ -121,6 +130,8 @@ def lessons(s, cur):
         due = datetime.datetime.fromisoformat(p["due"]) if p else None
         item["practicing"] = bool(p)
         item["stage"] = p["stage"] if p else 0
+        item["lapses"] = p.get("lapses", 0) if p else 0
+        item["tricky"] = item["lapses"] >= TRICKY_LAPSES
         item["steps"] = len(STEPS)
         item["checkIn"] = bool(p) and due <= t
         item["backIn"] = humanize(due - t) if p and due > t else ""
@@ -167,8 +178,16 @@ def progress(s):
 
 def schedule(s, lesson_id, minutes, stage):
     due = now() + datetime.timedelta(minutes=minutes)
-    s["practice"][lesson_id] = {"stage": stage, "due": due.isoformat()}
+    lapses = s["practice"].get(lesson_id, {}).get("lapses", 0)
+    s["practice"][lesson_id] = {"stage": stage, "due": due.isoformat(), "lapses": lapses}
     return humanize(due - now())
+
+
+def shown_today(s):
+    today = datetime.date.today().isoformat()
+    if s["today"].get("date") != today:
+        s["today"] = {"date": today, "count": 0}
+    return s["today"]["count"]
 
 
 def slug(text):
@@ -210,7 +229,7 @@ def main(argv):
         return 0
 
     if cmd == "due":
-        if s["paused"]:
+        if s["paused"] or shown_today(s) >= DAILY_CAP:
             item = None
         else:
             due = [i for i in lessons(s, curriculum()) if i["checkIn"]]
@@ -262,6 +281,8 @@ def main(argv):
         p = s["practice"].get(lesson_id)
         if not p:
             return 1
+        shown_today(s)
+        s["today"]["count"] += 1
         if answer == "pass":
             stage = p["stage"] + 1
             if stage >= len(STEPS):
@@ -271,7 +292,9 @@ def main(argv):
             else:
                 print("back in " + schedule(s, lesson_id, STEPS[stage], stage))
         elif answer == "fail":
-            print("back in " + schedule(s, lesson_id, RETRY_MINUTES, max(0, p["stage"] - 1)))
+            back = 2 if p["stage"] >= BIG_STEP_BACK_FROM else 1
+            p["lapses"] = p.get("lapses", 0) + 1
+            print("back in " + schedule(s, lesson_id, RETRY_MINUTES, max(0, p["stage"] - back)))
         else:
             print("back in " + schedule(s, lesson_id, SKIP_MINUTES, p["stage"]))
         save_state(s)
