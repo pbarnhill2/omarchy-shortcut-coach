@@ -66,6 +66,20 @@ BarWidget {
   // The lesson whose longer explanation is open (the ⓘ button), or null.
   property var detail: null
 
+  // The science behind the coach, opened from the welcome and practice cards.
+  readonly property var method: ({
+    "keys": "",
+    "title": "The science behind it",
+    "more": "Shortcut Coach puts a few well-studied ideas from memory research to work.\n\n"
+      + "<b>Recall beats re-reading.</b> Trying to remember something strengthens it more than looking it up again (Roediger and Karpicke, 2006). That's why check-ins hide the keys until you ask.\n\n"
+      + "<b>Spacing beats cramming.</b> Practice spread over days sticks far better than the same practice in one sitting. It's one of the most reliable findings in memory research.\n\n"
+      + "<b>Gaps that grow.</b> Paul Pimsleur (1967) proposed recalling each item just as it starts to fade, then waiting longer each time. Later work found the first check should wait a little (Karpicke and Roediger, 2007), and that a gap a bit too long costs far less than one too short (Cepeda and colleagues, 2008). So check-ins come after 10 minutes, 1 hour, 1 day, 4 days, 2 weeks and 6 weeks.\n\n"
+      + "<b>Sleep helps.</b> Finger-sequence skills improve after a night's sleep (Walker and colleagues, 2002), so the third check-in comes the next day.\n\n"
+      + "<b>Doing beats reading.</b> Practice starts by pressing the shortcut once, and the practice desktop gives every lesson something to act on.\n\n"
+      + "<b>Small batches, few interruptions.</b> Six shortcuts at a time. Check-ins wait for a pause in your typing, at most one every 15 minutes and 8 a day.\n\n"
+      + "The full write-up, with every source, is in the plugin's docs/RESEARCH.md."
+  })
+
   readonly property color fg: Commons.Color.popups.text
   readonly property color dim: Qt.darker(fg, 1.6)
   readonly property color faint: Qt.rgba(fg.r, fg.g, fg.b, 0.10)
@@ -1449,7 +1463,7 @@ BarWidget {
             Text {
               width: parent.width
               wrapMode: Text.WordWrap
-              text: "This is spaced recall, the method behind Pimsleur's language courses. Try the shortcut once now; it then moves to In practice and comes back as a quick check-in while you work: after 10 minutes, 1 hour, 1 day, 4 days, 2 weeks and 6 weeks."
+              text: "Try the shortcut once now; it then moves to In practice and comes back as a quick check-in while you work: after 10 minutes, 1 hour, 1 day, 4 days, 2 weeks and 6 weeks."
               color: root.fg
               font.family: Style.font.family
               font.pixelSize: Style.font.bodySmall
@@ -1458,7 +1472,7 @@ BarWidget {
             Text {
               width: parent.width
               wrapMode: Text.WordWrap
-              text: "Each time you recall a shortcut just as it starts to fade, the memory lasts longer, so check-ins get further apart. The gaps follow Pimsleur's graduated interval recall, tuned with later research: recalling beats re-reading, and a night's sleep helps it stick."
+              text: "Each time you recall a shortcut just as it starts to fade, the memory lasts longer, so check-ins get further apart. Recalling beats re-reading, and a night's sleep helps it stick."
               color: root.dim
               font.family: Style.font.family
               font.pixelSize: Style.font.bodySmall
@@ -1474,6 +1488,11 @@ BarWidget {
               lineHeight: 1.25
             }
             Item { width: 1; height: Style.space(2) }
+            Link {
+              text: "The science behind it ›"
+              strong: true
+              onClicked: root.detail = root.method
+            }
             Pill {
               label: "Got it"
               primary: true
@@ -1515,7 +1534,7 @@ BarWidget {
             Text {
               width: parent.width
               wrapMode: Text.WordWrap
-              text: "Learn shortcuts the way Pimsleur teaches languages"
+              text: "Learn shortcuts with a method backed by science"
               color: root.accent
               font.family: Style.font.family
               font.pixelSize: Style.font.body + 3
@@ -1524,11 +1543,16 @@ BarWidget {
             Text {
               width: parent.width
               wrapMode: Text.WordWrap
-              text: "Shortcut Coach uses spaced recall, the memory method behind Pimsleur's language courses: you recall each shortcut just as it starts to fade, and every time it sticks for longer. It's one of the best-supported findings in memory research."
+              text: "A few shortcuts at a time, then quick check-ins spaced out just as each one starts to fade, so it sticks for good. It's built on decades of memory research."
               color: root.fg
               font.family: Style.font.family
               font.pixelSize: Style.font.bodySmall
               lineHeight: 1.3
+            }
+            Link {
+              text: "The science behind it ›"
+              strong: true
+              onClicked: root.detail = root.method
             }
             Rectangle { width: parent.width; height: 1; color: root.faint }
             Text {
@@ -1638,12 +1662,13 @@ BarWidget {
               height: Math.max(detailKeys.height, detailTitle.implicitHeight)
               Keys {
                 id: detailKeys
+                visible: keys !== ""
                 keys: detailLayer.shown ? detailLayer.shown.keys : ""
                 anchors.verticalCenter: parent.verticalCenter
               }
               Text {
                 id: detailTitle
-                x: detailKeys.width + Style.space(10)
+                x: detailKeys.visible ? detailKeys.width + Style.space(10) : 0
                 width: parent.width - x - Style.space(24)
                 anchors.verticalCenter: parent.verticalCenter
                 elide: Text.ElideRight
@@ -1669,6 +1694,7 @@ BarWidget {
                 required property int index
                 width: detailText.width
                 wrapMode: Text.WordWrap
+                textFormat: Text.StyledText
                 text: modelData
                 color: index === 0 ? root.fg : Qt.rgba(root.fg.r, root.fg.g, root.fg.b, 0.82)
                 font.family: Style.font.family
