@@ -33,6 +33,16 @@ BarWidget {
   property var sections: []
   property var favorites: []
   property var inPractice: []
+  // Shortcuts flying into In practice before their save lands, by id. Keeps
+  // the section (and its landing spot) on screen for the first one.
+  property var incomingIds: ({})
+  readonly property int practiceIncoming: {
+    var n = 0
+    for (var id in incomingIds) if (inPractice.every(function(i) { return i.id !== id })) n++
+    return n
+  }
+  // When a chip last landed, so the save that follows doesn't glow twice.
+  property real lastLanding: 0
   property int batch: 6
   property int mastered: 0
   property int total: 0
@@ -85,6 +95,34 @@ BarWidget {
   // After every refresh: rows whose answer was saved but are still listed
   // (an Undo, or a failed save) drop their in-between state.
   signal refreshed()
+
+  // Fly a row's chip into In practice. Runs here, not in the row, because the
+  // row is gone before the chip lands. Order: remove the row, settle the
+  // layout, then measure where the heading is now.
+  function flyToPractice(id, from, keys, title) {
+    var ids = Object.assign({}, incomingIds)
+    ids[id] = true
+    incomingIds = ids
+    removeFromUpNext(id)
+    Qt.callLater(function() {
+      column.forceLayout()
+      var to = practiceList.target(confettiLayer)
+      var chip = flyingChip.createObject(confettiLayer, { x: from.x, y: from.y, sx: from.x, sy: from.y,
+                                                          keys: keys, title: title, tx: to.x, ty: to.y })
+      if (chip) chip.landed.connect(root.chipLanded)
+    })
+  }
+
+  function chipLanded() {
+    lastLanding = Date.now()
+    practiceList.glowNow()
+  }
+
+  // Take a row out of up next right away, without waiting for the save.
+  function removeFromUpNext(id) {
+    for (var i = 0; i < upNextModel.count; i++)
+      if (upNextModel.get(i).lid === id) { upNextModel.remove(i); return }
+  }
 
   function inUpNext(id) {
     for (var i = 0; i < upNextModel.count; i++)
@@ -236,6 +274,7 @@ BarWidget {
         root.sections = secs
         root.favorites = data.favorites || []
         root.inPractice = data.inPractice || []
+        if (Object.keys(root.pendingIds).length === 0) root.incomingIds = ({})
         root.mastered = data.mastered || 0
         root.total = data.total || 0
         root.complete = !!data.complete
@@ -531,7 +570,7 @@ BarWidget {
     readonly property bool busy: celebrating || leaving || trying
     width: ListView.view ? ListView.view.width : 0
     height: root.rowHeight
-    opacity: leaving ? 0.45 : 1
+    opacity: leaving ? 0 : 1
 
     Connections {
       target: root
@@ -576,10 +615,14 @@ BarWidget {
     Timer {
       id: tryTimer
       interval: 2600
-      onTriggered: {
-        row.leaving = true
-        root.commit(["later", row.item.id], "")
-      }
+      onTriggered: row.flyAway()
+    }
+
+    // Hand off to the root: the chip flies to In practice, the row folds away.
+    function flyAway() {
+      leaving = true
+      root.commit(["later", item.id], "")
+      root.flyToPractice(lid, line1.mapToItem(confettiLayer, 0, 0), item.keys || "", item.title || "")
     }
 
     Rectangle {
@@ -587,11 +630,27 @@ BarWidget {
       anchors.topMargin: Style.space(2)
       anchors.bottomMargin: Style.space(2)
       radius: Style.space(8)
-      color: row.celebrating ? Qt.rgba(root.accent.r, root.accent.g, root.accent.b, 0.10)
+      clip: true
+      color: row.celebrating || row.trying ? Qt.rgba(root.accent.r, root.accent.g, root.accent.b, 0.10)
            : rowHover.hovered ? Qt.rgba(root.fg.r, root.fg.g, root.fg.b, 0.05) : "transparent"
       Behavior on color { ColorAnimation { duration: 160 } }
     }
     HoverHandler { id: rowHover }
+
+    // While trying it: a thin line fills along the bottom of the row.
+    Rectangle {
+      x: Style.space(8)
+      y: row.height - Style.space(4)
+      height: Math.max(1, Style.space(2))
+      radius: height / 2
+      color: root.accent
+      visible: row.trying
+      width: 0
+      NumberAnimation on width {
+        running: row.trying
+        from: 0; to: row.width - Style.space(16); duration: 2600; easing.type: Easing.Linear
+      }
+    }
 
     Check {
       id: box
@@ -783,6 +842,62 @@ BarWidget {
     }
   }
 
+  // The shortcut's chip, flying from its row to the In practice heading.
+  component FlyingChip: Rectangle {
+    id: fly
+    property string keys: ""
+    property string title: ""
+    property real tx: 0
+    property real ty: 0
+    signal landed()
+    width: flyRow.implicitWidth + Style.space(16)
+    height: Style.space(28)
+    radius: height / 2
+    color: Commons.Color.popups.background
+    border.color: root.accent
+    border.width: Math.max(1, Style.space(1))
+    transformOrigin: Item.Left
+    Row {
+      id: flyRow
+      anchors.centerIn: parent
+      spacing: Style.space(8)
+      Keys { keys: fly.keys; anchors.verticalCenter: parent.verticalCenter }
+      Text {
+        anchors.verticalCenter: parent.verticalCenter
+        text: fly.title
+        color: root.fg
+        font.family: Style.font.family
+        font.pixelSize: Style.font.bodySmall
+      }
+    }
+    property real sx: 0
+    property real sy: 0
+    ParallelAnimation {
+      running: true
+      // One curve: down first, then gliding sideways into the heading,
+      // slowing as it lands.
+      PathAnimation {
+        target: fly
+        duration: 540
+        easing.type: Easing.OutCubic
+        path: Path {
+          startX: fly.sx; startY: fly.sy
+          PathQuad { x: fly.tx; y: fly.ty - fly.height / 2; controlX: fly.sx; controlY: fly.ty - fly.height / 2 }
+        }
+      }
+      SequentialAnimation {
+        NumberAnimation { target: fly; property: "scale"; to: 1.05; duration: 90; easing.type: Easing.OutQuad }
+        NumberAnimation { target: fly; property: "scale"; to: 0.5; duration: 450; easing.type: Easing.InOutCubic }
+      }
+      SequentialAnimation {
+        PauseAnimation { duration: 400 }
+        NumberAnimation { target: fly; property: "opacity"; to: 0; duration: 140 }
+      }
+      onFinished: { fly.landed(); fly.destroy() }
+    }
+  }
+  Component { id: flyingChip; FlyingChip {} }
+
   // A folding list at the top of All shortcuts: Favorites, In practice.
   component ListSection: Column {
     id: list
@@ -792,15 +907,21 @@ BarWidget {
     property var items: []
     property bool openByDefault: true
     readonly property bool open: root.expanded[key] === undefined ? openByDefault : !!root.expanded[key]
-    visible: items.length > 0
+    visible: items.length > 0 || (key === "practice" && root.practiceIncoming > 0)
     width: parent ? parent.width : 0
+
+    // Where a flying chip should land, in the given item's coordinates.
+    function target(layer) { return header.mapToItem(layer, Style.space(30), header.height / 2) }
+    function glowNow() { arrived.restart() }
+
     // Light up when something arrives, so it's clear where it went.
     property int lastCount: -1
     onItemsChanged: {
-      if (lastCount >= 0 && items.length > lastCount) arrived.restart()
+      if (lastCount >= 0 && items.length > lastCount && Date.now() - root.lastLanding > 3000) arrived.restart()
       lastCount = items.length
     }
     Item {
+      id: header
       width: parent.width
       height: Style.space(32)
       Rectangle {
@@ -818,9 +939,9 @@ BarWidget {
         opacity: 0
         SequentialAnimation {
           id: arrived
-          NumberAnimation { target: glow; property: "opacity"; to: 1; duration: 200 }
-          PauseAnimation { duration: 900 }
-          NumberAnimation { target: glow; property: "opacity"; to: 0; duration: 700 }
+          NumberAnimation { target: glow; property: "opacity"; to: 1; duration: 120 }
+          PauseAnimation { duration: 200 }
+          NumberAnimation { target: glow; property: "opacity"; to: 0; duration: 320 }
         }
       }
       MouseArea {
@@ -859,7 +980,7 @@ BarWidget {
         anchors.right: parent.right
         anchors.rightMargin: Style.space(10)
         anchors.verticalCenter: parent.verticalCenter
-        text: list.items.length
+        text: list.items.length + (list.key === "practice" ? root.practiceIncoming : 0)
         color: root.dim
         font.family: Style.font.family
         font.pixelSize: Style.font.bodySmall
@@ -1023,6 +1144,7 @@ BarWidget {
 
           // Shortcuts in practice, next check-in first. Folded by default.
           ListSection {
+            id: practiceList
             key: "practice"
             icon: "󰥔"
             title: "In practice"
