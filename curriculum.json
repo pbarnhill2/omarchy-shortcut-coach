@@ -12,15 +12,42 @@
    "action": "Keybindings",
    "keys": "SUPER + K",
    "title": "Cheat sheet of every shortcut",
-   "why": "Type a word to filter. When you forget anything else, start here.",
+   "why": "Type a word to filter. Start here when stuck.",
    "level": 1
+  },
+  {
+   "id": "mouse-move",
+   "action": "Move window",
+   "keys": "SUPER + LEFT-DRAG",
+   "title": "Drag any window",
+   "why": "Hold Super, drag with the left mouse button.",
+   "level": 1,
+   "more": "Hold Super, press the left mouse button anywhere inside a window (no title bar needed) and drag.\n\nA tiled window lifts out of its spot; let go over another window and the tiles rearrange around it. A floating window moves wherever you drop it.\n\nTry it now: hold Super and drag one window onto the side of another."
+  },
+  {
+   "id": "mouse-resize",
+   "action": "Resize window",
+   "keys": "SUPER + RIGHT-DRAG",
+   "title": "Resize with the mouse",
+   "why": "Hold Super, drag with the right mouse button.",
+   "level": 1,
+   "more": "Hold Super and drag with the right mouse button inside a window to resize it.\n\nOn tiled windows it moves the border between them: the neighbors shrink or grow to match, so you can give the window you're working in more room without touching the keyboard.\n\nOn a floating window it resizes the window itself, from the corner nearest your pointer.\n\nTry both: resize two tiled windows, then float one with {float} and resize it."
+  },
+  {
+   "id": "mouse-scroll",
+   "action": "Scroll active workspace forward",
+   "keys": "SUPER + SCROLL",
+   "level": 1,
+   "title": "Flip through desktops",
+   "why": "Hold Super and roll the scroll wheel.",
+   "more": "Hold Super and roll the scroll wheel to step through your desktops, one notch at a time. It skips empty desktops, so you only land where you have windows.\n\nHandy when your hand is already on the mouse. Add Alt (Super + Alt + scroll) to flip through the tabs of a group instead."
   },
   {
    "id": "launcher",
    "action": "Omarchy menu",
    "keys": "SUPER + SPACE",
    "title": "Launch any app",
-   "why": "Start typing the app's name and press Enter.",
+   "why": "Type the app's name and press Enter.",
    "level": 1
   },
   {
@@ -36,7 +63,7 @@
    "action": "Focus on left window",
    "keys": "SUPER + ARROWS",
    "title": "Jump between windows",
-   "why": "Super with an arrow key moves to the window in that direction.",
+   "why": "Moves to the window in that direction.",
    "level": 1
   },
   {
@@ -45,7 +72,8 @@
    "keys": "SUPER + 1-9",
    "title": "Go to desktop 1 to 9",
    "why": "Each desktop is one number away.",
-   "level": 1
+   "level": 1,
+   "more": "Omarchy calls them workspaces; think of them as separate desktops, each with its own windows. {workspace-switch} jumps straight to one (0 is the tenth).\n\nA common setup is one desktop per kind of work, like email on 1, browser on 2 and terminals on 3. Then every app is always one key away."
   },
   {
    "id": "workspace-move",
@@ -53,7 +81,8 @@
    "keys": "SUPER SHIFT + 1-9",
    "title": "Send a window to another desktop",
    "why": "You go along with it.",
-   "level": 1
+   "level": 1,
+   "more": "Sends the window you're in to another desktop and takes you along with it.\n\nTo send it away and stay where you are, use {move-silent}."
   },
   {
    "id": "fullscreen",
@@ -61,7 +90,8 @@
    "keys": "SUPER + F",
    "title": "True full screen",
    "why": "Covers everything, bar included.",
-   "level": 1
+   "level": 1,
+   "more": "Covers the whole screen, bar included. Press {fullscreen} again to leave.\n\nThere's also tiled full screen, Super + Ctrl + F: the app acts as if it were full screen (a video player hides its controls, for example) while the window stays in its tile."
   },
   {
    "id": "screenshot",
@@ -76,8 +106,9 @@
    "action": "Clipboard manager",
    "keys": "SUPER CTRL + V",
    "title": "Clipboard history",
-   "why": "Everything you've copied recently, not just the last thing.",
-   "level": 2
+   "why": "Everything you've copied lately.",
+   "level": 2,
+   "more": "Omarchy keeps a history of what you copy. {clipboard} opens it; pick an entry to paste it.\n\nRelated: Super + C and Super + V copy and paste the same way in every app, terminals included, where Ctrl + C would stop a running program."
   },
   {
    "id": "alt-tab",
@@ -92,7 +123,7 @@
    "action": "Former workspace",
    "keys": "SUPER CTRL + TAB",
    "title": "Back to the last desktop",
-   "why": "Bounce between two desktops, like Alt + Tab for desktops.",
+   "why": "Like Alt + Tab, for desktops.",
    "level": 2
   },
   {
@@ -100,8 +131,9 @@
    "action": "Toggle window floating/tiling",
    "keys": "SUPER + T",
    "title": "Float a window",
-   "why": "Lifts it out of the tiles but leaves it on its own desktop.",
-   "level": 2
+   "why": "Lifts it out of the tiles, on this desktop.",
+   "level": 2,
+   "more": "Normally Omarchy tiles windows: they share the desktop automatically, with no overlap. A floating window sits on top instead, at its own size and position.\n\nDrag it with {mouse-move} and resize it with {mouse-resize}. It stays on its own desktop. Press {float} again to tile it.\n\nTo float a window and keep it with you on every desktop, use pop-out ({pop-out})."
   },
   {
    "id": "swap",
@@ -116,8 +148,9 @@
    "action": "Full width",
    "keys": "SUPER ALT + F",
    "title": "Make a window full width",
-   "why": "Takes the whole desktop but keeps the bar and gaps. Press again to undo.",
-   "level": 2
+   "why": "The whole desktop, bar kept. Again to undo.",
+   "level": 2,
+   "more": "The window fills the desktop but keeps the bar and the gaps. Other windows on the desktop are still there underneath; press {full-width} again to bring them back.\n\nFull screen ({fullscreen}) also covers the bar."
   },
   {
    "id": "emojis",
@@ -148,40 +181,45 @@
    "action": "Toggle scratchpad",
    "keys": "SUPER + S",
    "title": "Show or hide the scratchpad",
-   "why": "A hidden drawer that appears over whatever desktop you're on.",
-   "level": 3
+   "why": "A hidden drawer over any desktop.",
+   "level": 3,
+   "more": "Think of the scratchpad as a drawer that slides out over whatever desktop you're on. Windows in it keep running while hidden.\n\n1. Put a window in with {scratchpad-move}. It disappears from its desktop.\n2. Press {scratchpad} to pull the drawer out over the desktop you're on. Press it again to tuck it away.\n3. To take a window out for good, open the drawer, click the window, and press {workspace-move}.\n\nGood for things you check often but don't want taking up a tile: a chat app, music, a notes terminal."
   },
   {
    "id": "scratchpad-move",
    "action": "Move window to scratchpad",
    "keys": "SUPER ALT + S",
    "title": "Put a window in the scratchpad",
-   "why": "Take it out again with Super + Shift + a number.",
-   "level": 3
+   "why": "Take it out with Super + Shift + number.",
+   "level": 3,
+   "more": "Puts the window you're in into the scratchpad, a hidden drawer you pull out over any desktop with {scratchpad}.\n\nTo take it out again, open the drawer, click the window, and press {workspace-move}."
   },
   {
    "id": "pop-out",
    "action": "Pop window out (float & pin)",
    "keys": "SUPER + O",
    "title": "Pop out and pin a window",
-   "why": "It floats on top and follows you to every desktop. Great for a video call.",
-   "level": 3
+   "why": "Floats on top and follows you everywhere.",
+   "level": 3,
+   "more": "Pop-out floats the window, centers it at a comfortable size, and pins it, so it stays visible when you switch desktops. Press {pop-out} again to put it back in the tiles.\n\nFloat ({float}) only floats it, on its own desktop.\n\nPop-out suits a video call or a video you want to keep watching while you move between desktops."
   },
   {
    "id": "group",
    "action": "Toggle window grouping",
    "keys": "SUPER + G",
    "title": "Stack windows as tabs",
-   "why": "Several windows share one tile, like browser tabs.",
-   "level": 3
+   "why": "Windows share one tile, like browser tabs.",
+   "level": 3,
+   "more": "A group stacks several windows into one tile, with tabs on top, like a browser.\n\n1. Press {group} on a window to make its tile a group.\n2. Move a neighboring window in with Super + Alt + the arrow pointing toward the group.\n3. Switch tabs with {group-next}, or click a tab. {group-out} takes a window back out.\n\nUse it when you want several windows on one desktop but only need to see one at a time."
   },
   {
    "id": "group-next",
    "action": "Next window in group",
    "keys": "SUPER ALT + TAB",
    "title": "Next tab in a group",
-   "why": "Flip through the windows stacked in a group.",
-   "level": 3
+   "why": "Flip through the windows in a group.",
+   "level": 3,
+   "more": "Moves to the next window in a group, the way Ctrl + Tab moves between browser tabs. Add Shift to go back.\n\nA group is several windows stacked in one tile with tabs on top; {group} makes one."
   },
   {
    "id": "group-out",
@@ -189,7 +227,8 @@
    "keys": "SUPER ALT + G",
    "title": "Pull a window out of a group",
    "why": "It goes back to being its own tile.",
-   "level": 3
+   "level": 3,
+   "more": "Takes the window you're in out of its group so it becomes its own tile again. The rest of the group stays together."
   },
   {
    "id": "split",
@@ -197,47 +236,35 @@
    "keys": "SUPER + J",
    "title": "Flip side-by-side to stacked",
    "why": "Switches how two tiles share the space.",
-   "level": 3
+   "level": 3,
+   "more": "In Omarchy's default layout, two windows sharing space sit side by side or one above the other. {split} flips the window you're in between the two.\n\nIt's the quickest fix when a window is too narrow to read."
   },
   {
    "id": "resize",
    "action": "Expand window left",
    "keys": "SUPER + MINUS / EQUAL",
    "title": "Resize a tile",
-   "why": "Add Shift for height, Alt for a little, Ctrl for a lot.",
-   "level": 3
+   "why": "Shift: height. Alt: a little. Ctrl: a lot.",
+   "level": 3,
+   "more": "Super + Minus and Super + Equal change the width of the window you're in. Add Shift to change the height, Alt to move a little, and Ctrl to move a lot.\n\nWith the mouse, use {mouse-resize}."
   },
   {
    "id": "move-silent",
    "action": "Move window silently to workspace 1",
    "keys": "SUPER SHIFT ALT + 1-9",
    "title": "Send a window away and stay put",
-   "why": "Like Super + Shift + number, but you don't follow it.",
-   "level": 3
-  },
-  {
-   "id": "mouse-move",
-   "action": "Move window",
-   "keys": "SUPER + LEFT MOUSE BUTTON",
-   "title": "Drag any window",
-   "why": "Hold Super and drag with the left mouse button, from anywhere in the window.",
-   "level": 3
-  },
-  {
-   "id": "mouse-resize",
-   "action": "Resize window",
-   "keys": "SUPER + RIGHT MOUSE BUTTON",
-   "title": "Resize with the mouse",
-   "why": "Hold Super and drag with the right mouse button.",
-   "level": 3
+   "why": "Like Super + Shift + number, but you stay.",
+   "level": 3,
+   "more": "Like {workspace-move}, but you stay on the desktop you're on and the window goes on without you.\n\nHandy for clearing your desk: push a finished terminal to desktop 9 to deal with later."
   },
   {
    "id": "ocr",
    "action": "Extract text (OCR) from screenshot",
    "keys": "SUPER CTRL + PRINT",
    "title": "Copy text from anywhere on screen",
-   "why": "Drag a box around text in an image, video or locked PDF.",
-   "level": 4
+   "why": "Drag a box around text in any image or PDF.",
+   "level": 4,
+   "more": "Drag a box around any text on screen: an image, a video frame, a PDF that won't let you select text. The text is read on your own computer (with Tesseract, no internet) and copied to your clipboard.\n\nIt works best on clear, decent-sized text."
   },
   {
    "id": "screenrecord",
@@ -252,7 +279,7 @@
    "action": "Color picker",
    "keys": "SUPER + PRINT",
    "title": "Grab any color on screen",
-   "why": "Click a pixel and its hex code goes to the clipboard.",
+   "why": "Click a pixel; its hex code is copied.",
    "level": 4
   },
   {
@@ -260,7 +287,7 @@
    "action": "Share",
    "keys": "SUPER CTRL + S",
    "title": "Share menu",
-   "why": "Send the clipboard, a file or a folder to another device.",
+   "why": "Send the clipboard or a file to a device.",
    "level": 4
   },
   {
@@ -284,7 +311,7 @@
    "action": "Toggle silencing notifications",
    "keys": "SUPER CTRL + COMMA",
    "title": "Do not disturb",
-   "why": "Silence notifications during a meeting or a recording.",
+   "why": "Silence notifications for a meeting.",
    "level": 4
   },
   {
@@ -308,7 +335,7 @@
    "action": "Theme menu",
    "keys": "SUPER SHIFT CTRL + SPACE",
    "title": "Switch themes",
-   "why": "Pick a new look for the whole desktop.",
+   "why": "A new look for the whole desktop.",
    "level": 5
   },
   {
@@ -332,7 +359,7 @@
    "action": "Toggle window transparency",
    "keys": "SUPER + BACKSPACE",
    "title": "Make a window solid",
-   "why": "Turns off transparency for the window you're in.",
+   "why": "Turns off transparency for this window.",
    "level": 5
   },
   {
@@ -349,7 +376,8 @@
    "keys": "SUPER + L",
    "title": "Switch this desktop's layout",
    "why": "Toggles between tiling layouts.",
-   "level": 5
+   "level": 5,
+   "more": "Switches this desktop between Omarchy's two tiling layouts.\n\nDwindle, the default, splits the space in half for each new window. Scrolling lines windows up in columns side by side and you scroll along them, which suits a very wide screen.\n\nThe choice is per desktop and is remembered."
   },
   {
    "id": "pseudo",
@@ -357,7 +385,8 @@
    "keys": "SUPER + P",
    "title": "Pseudo-tile a window",
    "why": "Keeps its own size inside its tile.",
-   "level": 5
+   "level": 5,
+   "more": "In Omarchy's default layout, a pseudo-tiled window keeps its own preferred size and sits centered in its tile, instead of stretching to fill it. Useful for small dialogs or apps that look wrong stretched. Press again to undo."
   }
  ]
 }

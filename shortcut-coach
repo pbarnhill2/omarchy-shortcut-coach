@@ -10,6 +10,7 @@
                                          answer a check-in (pass moves it a step along,
                                          fail steps it back, skip asks again soon)
   shortcut-coach due [--json]            the practice shortcut due for a check-in, if any
+  shortcut-coach fav ID / unfav ID       star or unstar a shortcut (your favorites list)
   shortcut-coach pause on|off            pause or resume check-ins
   shortcut-coach intro-seen              don't explain practice again
   shortcut-coach remove ID               delete one you added
@@ -40,7 +41,8 @@ import datetime, fcntl, json, os, re, subprocess, sys, tempfile
 HERE = os.path.dirname(os.path.realpath(__file__))
 # SHORTCUT_COACH_STATE points tests at a scratch file, never your progress.
 STATE = os.environ.get("SHORTCUT_COACH_STATE") or os.path.expanduser("~/.local/state/omarchy-shortcut-coach.json")
-FAMILY = re.compile(r"ARROWS|1-9|/")
+# Keys written as a family or a gesture keep the curriculum's wording.
+FAMILY = re.compile(r"ARROWS|1-9|/|DRAG|SCROLL")
 # Minutes until each check-in: 10m, 1h, 1d, 4d, 2w, 6w. Expanding by ~3-4x,
 # near the best gap for each retention target (Cepeda et al. 2008); the 1d
 # step puts a night's sleep before the third check (Walker et al. 2002).
@@ -69,6 +71,7 @@ def load_state():
     s.setdefault("paused", False)
     s.setdefault("introSeen", False)
     s.setdefault("today", {"date": "", "count": 0})
+    s.setdefault("favorites", [])
     s.pop("snoozed", None)
     return s
 
@@ -109,13 +112,22 @@ def live_bindings():
         if "→" not in line:
             continue
         keys, action = (part.strip() for part in line.split("→", 1))
-        found.setdefault(action, re.sub(r"\s+", " ", keys))
+        keys = re.sub(r"\s+", " ", keys)
+        # Prefer a keyboard binding over a mouse one for the same action.
+        if action not in found or ("mouse" in found[action].lower() and "mouse" not in keys.lower()):
+            found[action] = keys
     return found or None
 
 
 def curriculum():
     with open(os.path.join(HERE, "curriculum.json")) as f:
         return json.load(f)
+
+
+def prose_keys(keys):
+    """SUPER SHIFT + 1-9 -> Super + Shift + 1-9, for reading in a sentence."""
+    parts = [p for p in re.split(r"[\s+]+", keys) if p]
+    return " + ".join(p.capitalize() if p.isalpha() and len(p) > 1 else p for p in parts)
 
 
 def humanize(delta):
@@ -139,8 +151,19 @@ def lessons(s, cur):
             if not FAMILY.search(c["keys"]):
                 c["keys"] = live[c["action"]]
         items.append(dict(c, custom=False, section=names.get(str(c["level"]), "")))
-    t = now()
+    # Longer explanations name other shortcuts as {lesson-id}; fill in the
+    # keys this machine actually uses.
+    # A shortcut this machine doesn't have falls back to the curriculum keys.
+    keys_by_id = {l["id"]: prose_keys(l["keys"]) for l in cur["lessons"]}
+    keys_by_id.update({i["id"]: prose_keys(i["keys"]) for i in items})
     for item in items:
+        if item.get("more"):
+            item["more"] = re.sub(r"\{([a-z0-9-]+)\}",
+                                  lambda m: keys_by_id.get(m.group(1), m.group(0)), item["more"])
+    t = now()
+    favorites = set(s["favorites"])
+    for item in items:
+        item["favorite"] = item["id"] in favorites
         item["mastered"] = s["mastered"].get(item["id"])
         p = s["practice"].get(item["id"]) if not item["mastered"] else None
         due = datetime.datetime.fromisoformat(p["due"]) if p else None
@@ -174,12 +197,15 @@ def progress(s):
     if added:
         sections.insert(0, {"level": 0, "name": "Added for you", "items": added,
                             "done": sum(1 for i in added if i["mastered"]), "total": len(added)})
+    by_id = {i["id"]: i for i in items}
+    favorites = [by_id[f] for f in s["favorites"] if f in by_id]
     ordered = [i for sec in sections for i in sec["items"] if not i["mastered"]]
     up_next = [i for i in ordered if i["checkIn"]] + [i for i in ordered if not i["practicing"]]
     mastered = sum(1 for i in items if i["mastered"])
     return {
         "batch": s["batch"],
         "upNext": up_next,
+        "favorites": favorites,
         "sections": sections,
         "mastered": mastered,
         "total": len(items),
@@ -313,6 +339,17 @@ def main(argv):
             print("back in " + schedule(s, lesson_id, RETRY_MINUTES, max(0, p["stage"] - back)))
         else:
             print("back in " + schedule(s, lesson_id, SKIP_MINUTES, p["stage"]))
+        save_state(s)
+        return 0
+
+    if cmd == "fav" and args:
+        if args[0] not in s["favorites"]:
+            s["favorites"].append(args[0])
+        save_state(s)
+        return 0
+
+    if cmd == "unfav" and args:
+        s["favorites"] = [f for f in s["favorites"] if f != args[0]]
         save_state(s)
         return 0
 

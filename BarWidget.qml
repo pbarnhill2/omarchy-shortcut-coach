@@ -6,45 +6,65 @@ import qs.Commons as Commons
 import qs.Ui
 
 // Shortcut Coach: a cap icon in the bar that opens a short "up next" list of
-// shortcuts to learn, followed by every lesson grouped into sections. Nothing
-// is locked: up next walks the sections in order (Essentials first), and any
-// lesson can be checked off from its section. All reads and writes go
-// through the `shortcut-coach` script next to this file, so the panel and
-// anything that calls the script (you, or an agent adding lessons) share one
-// state file.
+// shortcuts to learn, then every lesson grouped into sections. All reads and
+// writes go through the `shortcut-coach` script next to this file, so the
+// panel, the check-in card and anything that calls the script (you, or an
+// agent adding lessons) share one state file.
+//
+// Layout rule: nothing changes size under the pointer. Rows have a fixed
+// height and fixed columns, hover hints and Undo live in a fixed status
+// line, and banners and the practice explainer float above the content.
 BarWidget {
   id: root
   moduleName: "pbarnhill.shortcut-coach"
 
-  readonly property string cli: String(Qt.resolvedUrl("shortcut-coach")).replace("file://", "")
-  readonly property string statePath: Quickshell.env("HOME") + "/.local/state/omarchy-shortcut-coach.json"
+  readonly property string dir: String(Qt.resolvedUrl(".")).replace("file://", "")
+  readonly property string cli: dir + "shortcut-coach"
+  // Development: a `.preview` file in the plugin folder points the panel at
+  // a scratch state file (kept outside this folder, which the shell watches),
+  // so screenshots never touch real progress.
+  property bool preview: false
+  readonly property string statePath: preview ? Quickshell.env("HOME") + "/.local/state/omarchy-shortcut-coach-preview.json"
+                                              : Quickshell.env("HOME") + "/.local/state/omarchy-shortcut-coach.json"
+  readonly property var cliEnv: preview ? ({ "SHORTCUT_COACH_STATE": statePath }) : ({})
 
   property bool opened: false
   property bool popoutSwitchClosing: false
-  property var upNext: []
   property var sections: []
+  property var favorites: []
   property int batch: 6
   property int mastered: 0
   property int total: 0
   property bool complete: false
+  property int practicing: 0
+  property bool paused: false
+  property bool introSeen: true
+  // The practice explainer, shown the first time someone presses Practice.
+  property bool showIntro: false
   // Which sections are unfolded, by level.
   property var expanded: ({})
   // Done counts from the last refresh, to spot a section being finished.
   property var lastDone: ({})
   property string bannerText: ""
-  property int practicing: 0
-  property bool paused: false
-  property bool introSeen: true
-  // The practice explainer, shown the first time someone presses Later.
-  property bool showIntro: false
-  readonly property var current: upNext.slice(0, batch)
+  // What the hovered control does; shown in the status line.
+  property string hint: ""
+  // The lesson whose longer explanation is open (the ⓘ button), or null.
+  property var detail: null
 
   readonly property color fg: Commons.Color.popups.text
   readonly property color dim: Qt.darker(fg, 1.6)
+  readonly property color faint: Qt.rgba(fg.r, fg.g, fg.b, 0.10)
   readonly property color accent: Commons.Color.accent
 
+  // The row grid, shared by every up next row.
+  readonly property int rowHeight: Style.space(58)
+  readonly property int checkCol: Style.space(8)
+  readonly property int pillCol: checkCol + Style.space(20) + Style.space(10)
+  readonly property int pillWidth: Style.space(100)
+  readonly property int textCol: pillCol + pillWidth + Style.space(14)
+
   function open() { opened = true; refresh() }
-  function close() { opened = false; showIntro = false; flush() }
+  function close() { opened = false; showIntro = false; detail = null; hint = ""; flush() }
   function closeForPopoutSwitch() {
     popoutSwitchClosing = true
     close()
@@ -57,63 +77,14 @@ BarWidget {
     listProc.running = true
   }
 
-  function run(args) {
-    Quickshell.execDetached([root.cli].concat(args))
-  }
+  // After every refresh: rows whose answer was saved but are still listed
+  // (an Undo, or a failed save) drop their in-between state.
+  signal refreshed()
 
-  // Row answers wait until their animation has played, then save together
-  // in one locked call. They live here, not in the row, so a refresh that
-  // rebuilds the rows can't drop one.
-  property var pending: []
-  // Lessons answered but not saved yet, so a refresh can't bring them back
-  // for a second answer.
-  property var pendingIds: ({})
-  property string undoTitle: ""
-  property var undoArgs: null
-
-  function commit(args, title) {
-    var id = args[1]
-    if (args[0] !== "undo") {
-      if (pendingIds[id]) return
-      var ids = Object.assign({}, pendingIds)
-      ids[id] = true
-      pendingIds = ids
-    }
-    pending = pending.concat([args])
-    flushTimer.restart()
-    if (title !== "") {
-      undoTitle = title
-      undoArgs = ["undo", args[1]]
-      undoTimer.restart()
-    }
-  }
-
-  // One save at a time, in order: an undo can never overtake its answer.
-  function flush() {
-    if (pending.length === 0 || flushProc.running) return
-    flushProc.command = [root.cli, "apply", JSON.stringify(pending)]
-    pending = []
-    flushProc.running = true
-  }
-
-  Process {
-    id: flushProc
-    onExited: {
-      if (root.pending.length > 0) root.flush()
-      else root.pendingIds = ({})
-    }
-  }
-
-  Timer {
-    id: flushTimer
-    interval: 1900
-    onTriggered: root.flush()
-  }
-
-  Timer {
-    id: undoTimer
-    interval: 8000
-    onTriggered: root.undoTitle = ""
+  function inUpNext(id) {
+    for (var i = 0; i < upNextModel.count; i++)
+      if (upNextModel.get(i).lid === id) return true
+    return false
   }
 
   function toggleSection(level) {
@@ -127,23 +98,115 @@ BarWidget {
     root.bannerText = text
     bannerTimer.restart()
     for (var k = 0; k < 5; k++)
-      root.burst(confettiLayer, confettiLayer.width * (k + 0.5) / 5, Style.space(20))
+      root.burst(confettiLayer, confettiLayer.width * (k + 0.5) / 5, Style.space(30))
+  }
+
+  // ---- Saving -------------------------------------------------------------
+  // Answers wait until their animation has played, then save together in one
+  // locked call, one batch at a time and in order. They live here, not in a
+  // row, so a refresh that rebuilds rows can't drop one.
+  property var pending: []
+  // Lessons answered but not saved yet, so a refresh can't bring them back.
+  property var pendingIds: ({})
+  property string undoTitle: ""
+  property var undoArgs: null
+
+  function commit(args, title) {
+    var id = args[1]
+    if (args[0] !== "undo" && id !== undefined) {
+      if (pendingIds[id]) return
+      var ids = Object.assign({}, pendingIds)
+      ids[id] = true
+      pendingIds = ids
+    }
+    pending = pending.concat([args])
+    flushTimer.restart()
+    if (title) {
+      undoTitle = title
+      undoArgs = ["undo", id]
+      undoTimer.restart()
+    }
+  }
+
+  // For settings (pause, intro): save now.
+  function run(args) {
+    pending = pending.concat([args])
+    flush()
+  }
+
+  function flush() {
+    if (pending.length === 0 || flushProc.running) return
+    flushProc.command = [root.cli, "apply", JSON.stringify(pending)]
+    pending = []
+    flushProc.running = true
+  }
+
+  Process {
+    id: flushProc
+    environment: root.cliEnv
+    onExited: {
+      if (root.pending.length > 0) root.flush()
+      else root.pendingIds = ({})
+      root.refresh()
+    }
+  }
+
+  Timer {
+    id: flushTimer
+    interval: 1100
+    onTriggered: root.flush()
+  }
+
+  Timer {
+    id: undoTimer
+    interval: 8000
+    onTriggered: root.undoTitle = ""
+  }
+
+  Timer {
+    id: bannerTimer
+    interval: 3500
+    onTriggered: root.bannerText = ""
+  }
+
+  // ---- Up next model --------------------------------------------------------
+  // Synced in place by lesson id, so rows that stay keep their delegate and
+  // the list animates only what changed.
+  ListModel { id: upNextModel }
+
+  function syncUpNext(items) {
+    var want = items.slice(0, root.batch)
+    var ids = want.map(function(i) { return i.id })
+    for (var r = upNextModel.count - 1; r >= 0; r--)
+      if (ids.indexOf(upNextModel.get(r).lid) === -1) upNextModel.remove(r)
+    for (var i = 0; i < want.length; i++) {
+      var payload = JSON.stringify(want[i])
+      var at = -1
+      for (var j = i; j < upNextModel.count; j++)
+        if (upNextModel.get(j).lid === want[i].id) { at = j; break }
+      if (at === -1) upNextModel.insert(i, { lid: want[i].id, payload: payload })
+      else {
+        if (at !== i) upNextModel.move(at, i, 1)
+        if (upNextModel.get(i).payload !== payload) upNextModel.setProperty(i, "payload", payload)
+      }
+    }
   }
 
   implicitWidth: button.implicitWidth
   implicitHeight: button.implicitHeight
 
-  Component.onCompleted: refresh()
+  Component.onCompleted: previewCheck.running = true
 
-  Timer {
-    id: bannerTimer
-    interval: 4000
-    onTriggered: root.bannerText = ""
+  Process {
+    id: previewCheck
+    command: ["test", "-f", root.dir + ".preview"]
+    onExited: function(code) { root.preview = code === 0; root.refresh() }
   }
 
   Process {
     id: listProc
     command: [root.cli, "list", "--json"]
+    environment: root.cliEnv
     stdout: StdioCollector {
       waitForEnd: true
       onStreamFinished: {
@@ -160,24 +223,26 @@ BarWidget {
         }
         var wasComplete = root.complete
         root.batch = data.batch || 6
-        root.upNext = (data.upNext || []).filter(function(i) { return !root.pendingIds[i.id] })
         root.sections = secs
+        root.favorites = data.favorites || []
         root.mastered = data.mastered || 0
         root.total = data.total || 0
         root.complete = !!data.complete
         root.practicing = data.practicing || 0
         root.paused = !!data.paused
         root.introSeen = !!data.introSeen
+        root.syncUpNext((data.upNext || []).filter(function(i) { return !root.pendingIds[i.id] }))
         if (root.opened) {
           if (root.complete && !wasComplete) root.celebrate("🏆  Shortcut Master!")
           else if (finished !== "") root.celebrate("🎉  " + finished + " complete!")
         }
         root.lastDone = done
+        root.refreshed()
       }
     }
   }
 
-  // Any change to progress (from the panel or the script) reloads the list.
+  // Any change to progress (from the panel, the card or the script) reloads.
   FileView {
     path: root.statePath
     watchChanges: true
@@ -199,9 +264,6 @@ BarWidget {
     }
   }
 
-
-  // One piece of confetti. It pops up from where it was thrown, drifts
-  // sideways, falls under "gravity" while spinning, fades, and removes itself.
   component ConfettiBit: Rectangle {
     id: bit
     property real dx: 0
@@ -250,26 +312,28 @@ BarWidget {
 
   Component { id: confettiBit; ConfettiBit {} }
 
+  // ---- Building blocks --------------------------------------------------------
 
-  // A rounded button with an icon and a label, for the row actions.
+  // A fixed-width rounded button. Its size never depends on hover or state.
   component Pill: Rectangle {
     id: pill
     property string label: ""
     property bool primary: false
+    property string hintText: ""
     signal clicked()
     readonly property bool hovered: pillMouse.containsMouse
-    width: pillLabel.implicitWidth + Style.space(16)
-    height: Math.max(Style.space(24), pillLabel.implicitHeight + Style.space(8))
+    width: root.pillWidth
+    height: Style.space(26)
     radius: height / 2
-    color: primary ? Qt.rgba(root.accent.r, root.accent.g, root.accent.b, hovered ? 0.30 : 0.18)
+    color: primary ? Qt.rgba(root.accent.r, root.accent.g, root.accent.b, hovered ? 0.32 : 0.20)
                    : hovered ? Qt.rgba(root.accent.r, root.accent.g, root.accent.b, 0.14) : "transparent"
-    border.color: primary || hovered ? root.accent : root.dim
+    border.color: primary || hovered ? root.accent : Qt.rgba(root.fg.r, root.fg.g, root.fg.b, 0.38)
     border.width: Math.max(1, Style.space(1))
+    Behavior on color { ColorAnimation { duration: 120 } }
     Text {
-      id: pillLabel
       anchors.centerIn: parent
       text: pill.label
-      color: pill.primary || pill.hovered ? root.accent : root.dim
+      color: pill.primary || pill.hovered ? root.accent : Qt.rgba(root.fg.r, root.fg.g, root.fg.b, 0.82)
       font.family: Style.font.family
       font.pixelSize: Style.font.bodySmall
       font.bold: pill.primary
@@ -280,277 +344,90 @@ BarWidget {
       hoverEnabled: true
       cursorShape: Qt.PointingHandCursor
       onClicked: pill.clicked()
+      onContainsMouseChanged: root.hint = containsMouse ? pill.hintText : (root.hint === pill.hintText ? "" : root.hint)
     }
   }
 
-  component Lesson: Item {
-    id: lesson
-    required property var modelData
-    readonly property var item: modelData || ({})
-    // Up next rows show the tip and fold away once answered; section rows
-    // are compact and stay put, checked.
-    property bool compact: false
-    readonly property bool mastered: !!item.mastered
-    // Back from practice: keys hidden until "Show me". Only up next rows
-    // ask; in a section the checkbox always means "I know it".
-    readonly property bool checkIn: !!item.checkIn && !compact
-    property bool revealed: false
-    // Practice starts with one real try, before the first check-in.
-    property bool trying: false
-    // Ticked and celebrating (confetti, strike, fade).
-    property bool celebrating: false
-    // Leaving for practice: slides away, the checkbox stays empty.
-    property bool leaving: false
-    readonly property bool busy: celebrating || leaving
-    readonly property bool done: mastered || celebrating
-    property real collapse: 1
-    // What the hovered button does, shown in place of the tip.
-    readonly property string hint: doneMouse.containsMouse
-        ? (mastered ? "Not sure after all? Unmark it" : "I know it: mark it as known")
-        : practicePill.hovered ? "Not sure yet: try it once, then quick check-ins while you work"
-        : triedPill.hovered ? "First check-in in about 10 minutes"
-        : rememberPill.hovered ? "Remembered: on to the next, longer gap"
-        : showPill.hovered ? "Show the keys. It comes back in 10 minutes"
-        : ""
-    width: parent ? parent.width : 0
-    height: (Math.max(box.height, actions.height, textCol.implicitHeight) + Style.space(compact ? 8 : 14)) * collapse
-    clip: collapse < 1
-
-    // Ticks it: mastered for good (or, on a check-in, one step along).
-    function check() {
-      if (busy) return
-      if (mastered) { root.run(["undo", item.id]); return }
-      celebrating = true
-      var p = (checkIn ? rememberPill : box).mapToItem(confettiLayer, Style.space(10), Style.space(10))
-      root.burst(confettiLayer, p.x, p.y)
-      root.commit(checkIn ? ["checkin", item.id, "pass"] : ["done", item.id], checkIn ? "" : item.title)
-      if (compact) compactCelebration.start()
-      else celebration.start()
+  // A checkbox with a generous click area. Checking pops it a little.
+  component Check: Rectangle {
+    id: check
+    property bool checked: false
+    property bool pop: false
+    property string hintText: ""
+    property int size: Style.space(20)
+    signal clicked()
+    readonly property bool hovered: checkMouse.containsMouse
+    width: size; height: size
+    radius: Style.space(4)
+    color: checked ? root.accent : hovered ? Qt.rgba(root.accent.r, root.accent.g, root.accent.b, 0.18) : "transparent"
+    border.color: checked || hovered ? root.accent : root.dim
+    border.width: Math.max(1, Style.space(2))
+    Behavior on color { ColorAnimation { duration: 150 } }
+    SequentialAnimation on scale {
+      running: check.pop
+      NumberAnimation { to: 1.4; duration: 140; easing.type: Easing.OutQuad }
+      NumberAnimation { to: 1.0; duration: 260; easing.type: Easing.OutBack }
     }
-
-    // Not sure yet: try it once now, then practice with spaced check-ins.
-    function practice() {
-      if (busy) return
-      if (!root.introSeen) root.showIntro = true
-      trying = true
-    }
-
-    function tried() {
-      if (busy) return
-      leaving = true
-      root.commit(["later", item.id], "")
-      leaveAnimation.start()
-    }
-
-    // Forgot at a check-in: show the keys now, record it once they're seen.
-    function acknowledge() {
-      if (busy) return
-      leaving = true
-      root.commit(["checkin", item.id, "fail"], "")
-      leaveAnimation.start()
-    }
-
-    SequentialAnimation {
-      id: celebration
-      NumberAnimation { target: strike; property: "width"; from: 0; to: titleText.width; duration: 320; easing.type: Easing.OutCubic }
-      PauseAnimation { duration: 1100 }
-      ParallelAnimation {
-        NumberAnimation { target: lesson; property: "opacity"; to: 0; duration: 380; easing.type: Easing.InQuad }
-        NumberAnimation { target: lesson; property: "collapse"; to: 0; duration: 420; easing.type: Easing.InOutQuad }
-      }
-    }
-
-    SequentialAnimation {
-      id: leaveAnimation
-      ParallelAnimation {
-        NumberAnimation { target: lesson; property: "opacity"; to: 0; duration: 380; easing.type: Easing.InQuad }
-        NumberAnimation { target: slide; property: "x"; to: Style.space(60); duration: 380; easing.type: Easing.InQuad }
-        NumberAnimation { target: lesson; property: "collapse"; to: 0; duration: 420; easing.type: Easing.InOutQuad }
-      }
-    }
-
-    SequentialAnimation {
-      id: compactCelebration
-      NumberAnimation { target: strike; property: "width"; from: 0; to: titleText.width; duration: 320; easing.type: Easing.OutCubic }
-    }
-
-    transform: Translate { id: slide }
-
-    HoverHandler { id: rowHover }
-
-    Rectangle {
-      anchors.fill: parent
-      radius: Style.space(6)
-      color: lesson.celebrating ? Qt.rgba(root.accent.r, root.accent.g, root.accent.b, 0.10)
-           : rowHover.hovered ? Qt.rgba(root.fg.r, root.fg.g, root.fg.b, 0.06) : "transparent"
-      Behavior on color { ColorAnimation { duration: 200 } }
-    }
-
-    // The checkbox. Only the box (and a little margin) ticks; reading the
-    // row never does. Hidden on a check-in, where the pills ask instead.
-    Rectangle {
-      id: box
-      visible: !lesson.checkIn
-      width: Style.space(lesson.compact ? 15 : 20); height: width
-      radius: Style.space(4)
-      anchors.left: parent.left
-      anchors.leftMargin: Style.space(lesson.compact ? 24 : 8)
-      anchors.verticalCenter: parent.verticalCenter
-      color: lesson.done ? root.accent : doneMouse.containsMouse ? Qt.rgba(root.accent.r, root.accent.g, root.accent.b, 0.18) : "transparent"
-      border.color: lesson.done || doneMouse.containsMouse ? root.accent : root.dim
-      border.width: Math.max(1, Style.space(2))
-      Behavior on color { ColorAnimation { duration: 150 } }
-
-      // A little pop when checked.
-      SequentialAnimation on scale {
-        running: lesson.celebrating && !lesson.checkIn
-        NumberAnimation { to: 1.45; duration: 140; easing.type: Easing.OutQuad }
-        NumberAnimation { to: 1.0; duration: 260; easing.type: Easing.OutBack }
-      }
-
-      Text {
-        anchors.centerIn: parent
-        visible: lesson.done
-        text: "✓"
-        color: Commons.Color.popups.background
-        font.family: Style.font.family
-        font.pixelSize: lesson.compact ? Style.font.bodySmall : Style.font.body
-        font.bold: true
-      }
-
-      MouseArea {
-        id: doneMouse
-        anchors.fill: parent
-        anchors.margins: -Style.space(3)
-        hoverEnabled: true
-        cursorShape: Qt.PointingHandCursor
-        onClicked: lesson.check()
-      }
-    }
-
-    // The row's choices, right beside the checkbox so they read as a pair:
-    // "Practice" (a clock, the convention from mail snooze) on a new lesson,
-    // "Remembered" and "Show me" on a check-in.
-    Row {
-      id: actions
-      visible: !lesson.compact
-      anchors.left: lesson.checkIn ? parent.left : box.right
-      anchors.leftMargin: Style.space(8)
-      anchors.verticalCenter: parent.verticalCenter
-      spacing: Style.space(6)
-      opacity: lesson.mastered || lesson.busy ? 0 : 1
-      enabled: opacity > 0
-
-      Pill {
-        id: practicePill
-        visible: !lesson.checkIn && !lesson.trying
-        label: "󰥔 Practice"
-        onClicked: lesson.practice()
-      }
-      Pill {
-        id: triedPill
-        visible: lesson.trying
-        primary: true
-        label: "✓ Tried it"
-        onClicked: lesson.tried()
-      }
-      Pill {
-        id: rememberPill
-        visible: lesson.checkIn && !lesson.revealed
-        primary: true
-        label: "✓ Remembered"
-        onClicked: lesson.check()
-      }
-      Pill {
-        id: showPill
-        visible: lesson.checkIn && !lesson.revealed
-        label: "󰈈 Show me"
-        onClicked: lesson.revealed = true
-      }
-      Pill {
-        visible: lesson.checkIn && lesson.revealed
-        primary: true
-        label: "Got it"
-        onClicked: lesson.acknowledge()
-      }
-    }
-
-    Column {
-      id: textCol
-      anchors.left: lesson.compact ? box.right : actions.right
-      anchors.leftMargin: Style.space(12)
-      anchors.right: parent.right
-      anchors.rightMargin: Style.space(8)
-      anchors.verticalCenter: parent.verticalCenter
-      spacing: Style.space(3)
-
-      Row {
-        spacing: Style.space(10)
-        Rectangle {
-          id: keysChip
-          width: keysText.implicitWidth + Style.space(12)
-          height: keysText.implicitHeight + Style.space(4)
-          radius: Style.space(4)
-          color: Qt.rgba(root.accent.r, root.accent.g, root.accent.b, lesson.mastered ? 0.08 : 0.16)
-          Text {
-            id: keysText
-            anchors.centerIn: parent
-            text: lesson.checkIn && !lesson.revealed ? "? ? ?" : (lesson.item.keys || "")
-            color: lesson.mastered ? root.dim : root.accent
-            font.family: Style.font.family
-            font.pixelSize: Style.font.bodySmall
-            font.bold: true
-          }
-        }
-        Text {
-          id: titleText
-          anchors.verticalCenter: parent.verticalCenter
-          width: Math.min(implicitWidth, textCol.width - keysChip.width - Style.space(10) - (practiceNote.visible ? practiceNote.width + Style.space(8) : 0))
-          elide: Text.ElideRight
-          text: lesson.item.title || ""
-          color: lesson.done ? root.dim : root.fg
-          font.family: Style.font.family
-          font.pixelSize: lesson.compact ? Style.font.bodySmall : Style.font.body
-          font.strikeout: lesson.mastered
-          Behavior on color { ColorAnimation { duration: 300 } }
-
-          // The strike line that draws across while celebrating.
-          Rectangle {
-            id: strike
-            visible: lesson.celebrating && !lesson.checkIn
-            anchors.verticalCenter: parent.verticalCenter
-            width: 0
-            height: Math.max(1, Style.space(2))
-            color: root.fg
-          }
-        }
-      }
-      Text {
-        width: parent.width
-        visible: !lesson.compact && !lesson.mastered && text !== ""
-        text: lesson.hint !== "" ? lesson.hint
-              : lesson.trying ? "Try it now: press " + lesson.item.keys + ". Doing it beats reading it."
-              : lesson.checkIn && lesson.revealed ? "Try it now. " + (lesson.item.why || "")
-              : lesson.checkIn ? "Check-in " + (lesson.item.stage + 1) + " of " + lesson.item.steps + ": do you remember the keys?"
-              : (lesson.item.why || "")
-        wrapMode: Text.WordWrap
-        color: lesson.hint !== "" || lesson.trying ? root.accent : root.dim
-        font.family: Style.font.family
-        font.pixelSize: Style.font.bodySmall
-      }
-    }
-
-    // In practice, shown in its section: how far along, and the next check-in.
     Text {
-      id: practiceNote
-      visible: lesson.compact && lesson.item.practicing && !lesson.busy
-      anchors.right: parent.right
-      anchors.rightMargin: Style.space(8)
-      anchors.verticalCenter: parent.verticalCenter
-      text: (lesson.item.tricky ? "tricky · " : "") + "󰥔 " + lesson.item.stage + "/" + lesson.item.steps + (lesson.item.backIn ? " · " + lesson.item.backIn : " · now")
-      color: root.dim
+      anchors.centerIn: parent
+      visible: check.checked
+      text: "✓"
+      color: Commons.Color.popups.background
+      font.family: Style.font.family
+      font.pixelSize: check.size * 0.7
+      font.bold: true
+    }
+    MouseArea {
+      id: checkMouse
+      anchors.fill: parent
+      anchors.margins: -Style.space(5)
+      hoverEnabled: true
+      cursorShape: Qt.PointingHandCursor
+      onClicked: check.clicked()
+      onContainsMouseChanged: root.hint = containsMouse ? check.hintText : (root.hint === check.hintText ? "" : root.hint)
+    }
+  }
+
+  // The keys, as a chip.
+  component Keys: Rectangle {
+    id: keysChip
+    property string keys: ""
+    property bool muted: false
+    width: keysLabel.implicitWidth + Style.space(12)
+    height: Style.space(20)
+    radius: Style.space(4)
+    color: Qt.rgba(root.accent.r, root.accent.g, root.accent.b, muted ? 0.08 : 0.16)
+    Text {
+      id: keysLabel
+      anchors.centerIn: parent
+      text: keysChip.keys
+      color: keysChip.muted ? root.dim : root.accent
+      font.family: Style.font.family
+      font.pixelSize: Style.font.bodySmall
+      font.bold: true
+    }
+  }
+
+  // In place of the keys on a check-in: which check-in this is.
+  component CheckInBadge: Rectangle {
+    id: badge
+    property int stage: 0
+    property int steps: 6
+    width: badgeLabel.implicitWidth + Style.space(12)
+    height: Style.space(20)
+    radius: Style.space(4)
+    color: "transparent"
+    border.color: root.accent
+    border.width: Math.max(1, Style.space(1))
+    Text {
+      id: badgeLabel
+      anchors.centerIn: parent
+      text: "CHECK-IN " + (badge.stage + 1) + "/" + badge.steps
+      color: root.accent
       font.family: Style.font.family
       font.pixelSize: Style.font.caption
+      font.bold: true
+      font.letterSpacing: 0.6
     }
   }
 
@@ -561,10 +438,330 @@ BarWidget {
     font.bold: true
     font.letterSpacing: 1
     leftPadding: Style.space(8)
-    topPadding: Style.space(10)
-    bottomPadding: Style.space(2)
   }
 
+  // A clickable text link that never changes size on hover.
+  component Link: Text {
+    id: link
+    property bool strong: false
+    signal clicked()
+    color: linkMouse.containsMouse ? root.fg : (strong ? root.accent : root.dim)
+    font.family: Style.font.family
+    font.pixelSize: Style.font.bodySmall
+    font.bold: strong
+    MouseArea {
+      id: linkMouse
+      anchors.fill: parent
+      anchors.margins: -Style.space(6)
+      hoverEnabled: true
+      cursorShape: Qt.PointingHandCursor
+      onClicked: link.clicked()
+    }
+  }
+
+  // Opens the longer explanation, for lessons that have one.
+  component Info: Text {
+    id: info
+    property var lesson: null
+    visible: !!(lesson && lesson.more)
+    text: "󰋽"
+    color: infoMouse.containsMouse ? root.accent : root.dim
+    font.family: Style.font.family
+    font.pixelSize: Style.font.body
+    MouseArea {
+      id: infoMouse
+      anchors.fill: parent
+      anchors.margins: -Style.space(5)
+      hoverEnabled: true
+      cursorShape: Qt.PointingHandCursor
+      onClicked: { root.hint = ""; root.detail = info.lesson }
+      onContainsMouseChanged: root.hint = containsMouse ? "How it works" : (root.hint === "How it works" ? "" : root.hint)
+    }
+  }
+
+  // Star a shortcut to keep it in Favorites, your own cheat sheet.
+  component Star: Text {
+    id: star
+    property var lesson: null
+    readonly property bool on: !!(lesson && lesson.favorite)
+    width: Style.space(18)
+    horizontalAlignment: Text.AlignHCenter
+    text: on ? "󰓎" : "󰓒"
+    color: on ? root.accent : (starMouse.containsMouse ? root.fg : Qt.rgba(root.fg.r, root.fg.g, root.fg.b, 0.35))
+    font.family: Style.font.family
+    font.pixelSize: Style.font.body + 1
+    MouseArea {
+      id: starMouse
+      anchors.fill: parent
+      anchors.margins: -Style.space(5)
+      hoverEnabled: true
+      cursorShape: Qt.PointingHandCursor
+      readonly property string hintText: star.on ? "Remove from favorites" : "Add to favorites, your own cheat sheet"
+      onClicked: if (star.lesson) root.run([star.on ? "unfav" : "fav", star.lesson.id])
+      onContainsMouseChanged: root.hint = containsMouse ? hintText : (root.hint === hintText ? "" : root.hint)
+    }
+  }
+
+  // ---- An up next row -----------------------------------------------------------
+  // Fixed height, fixed columns: [checkbox] [action pill] [keys + title / tip].
+  component UpNextRow: Item {
+    id: row
+    required property string lid
+    required property string payload
+    readonly property var item: JSON.parse(payload)
+    readonly property bool checkIn: !!item.checkIn
+    property bool revealed: false
+    property bool trying: false
+    property bool celebrating: false
+    property bool leaving: false
+    readonly property bool busy: celebrating || leaving
+    width: ListView.view ? ListView.view.width : 0
+    height: root.rowHeight
+    opacity: leaving ? 0.45 : 1
+
+    Connections {
+      target: root
+      function onRefreshed() {
+        if (!(row.celebrating || row.leaving) || root.pendingIds[row.lid] || !root.inUpNext(row.lid)) return
+        row.celebrating = false
+        row.leaving = false
+        row.trying = false
+        row.revealed = false
+        strike.width = 0
+      }
+    }
+    Behavior on opacity { NumberAnimation { duration: 200 } }
+
+    // Ticked: known for good, or on a check-in, remembered.
+    function check() {
+      if (busy) return
+      celebrating = true
+      var p = box.mapToItem(confettiLayer, box.width / 2, box.height / 2)
+      root.burst(confettiLayer, p.x, p.y)
+      root.commit(checkIn ? ["checkin", item.id, "pass"] : ["done", item.id], checkIn ? "" : item.title)
+      strikeAnim.start()
+      root.hint = ""
+    }
+
+    function pillClicked() {
+      if (busy) return
+      if (trying) {
+        leaving = true
+        root.commit(["later", item.id], "")
+      } else if (checkIn && revealed) {
+        leaving = true
+        root.commit(["checkin", item.id, "fail"], "")
+      } else if (checkIn) {
+        revealed = true
+      } else {
+        if (!root.introSeen) root.showIntro = true
+        trying = true
+      }
+      root.hint = ""
+    }
+
+    Rectangle {
+      anchors.fill: parent
+      anchors.topMargin: Style.space(2)
+      anchors.bottomMargin: Style.space(2)
+      radius: Style.space(8)
+      color: row.celebrating ? Qt.rgba(root.accent.r, root.accent.g, root.accent.b, 0.10)
+           : rowHover.hovered ? Qt.rgba(root.fg.r, root.fg.g, root.fg.b, 0.05) : "transparent"
+      Behavior on color { ColorAnimation { duration: 160 } }
+    }
+    HoverHandler { id: rowHover }
+
+    Check {
+      id: box
+      x: root.checkCol
+      anchors.verticalCenter: parent.verticalCenter
+      checked: row.celebrating
+      pop: row.celebrating
+      enabled: !row.busy
+      hintText: row.checkIn ? "Remembered it: the next check-in waits longer"
+                            : "Know it already: mark it as known"
+      onClicked: row.check()
+    }
+
+    Pill {
+      x: root.pillCol
+      anchors.verticalCenter: parent.verticalCenter
+      opacity: row.busy ? 0 : 1
+      enabled: !row.busy
+      primary: row.trying || (row.checkIn && row.revealed)
+      label: row.trying ? "✓ Tried it"
+           : row.checkIn && row.revealed ? "Got it"
+           : row.checkIn ? "󰈈 Show me"
+           : "󰥔 Practice"
+      hintText: row.trying ? "Done trying: first check-in in about 10 minutes"
+              : row.checkIn && row.revealed ? "It comes back in 10 minutes"
+              : row.checkIn ? "Forgot? See the keys and try them"
+              : "Not sure yet: try it once, then quick check-ins"
+      onClicked: row.pillClicked()
+    }
+
+    // Line 1: keys (or which check-in) and the title.
+    Star {
+      id: rowStar
+      lesson: row.checkIn && !row.revealed ? null : row.item
+      visible: !!lesson
+      x: row.width - width - Style.space(10)
+      anchors.verticalCenter: parent.verticalCenter
+    }
+
+    Item {
+      id: line1
+      x: root.textCol
+      width: row.width - root.textCol - Style.space(40)
+      y: Style.space(9)
+      height: Style.space(20)
+
+      Keys {
+        id: chip
+        visible: !(row.checkIn && !row.revealed)
+        keys: row.item.keys || ""
+        anchors.verticalCenter: parent.verticalCenter
+      }
+      CheckInBadge {
+        id: badge
+        visible: row.checkIn && !row.revealed
+        stage: row.item.stage || 0
+        steps: row.item.steps || 6
+        anchors.verticalCenter: parent.verticalCenter
+      }
+      Text {
+        id: title
+        x: (chip.visible ? chip.width : badge.width) + Style.space(10)
+        width: Math.min(implicitWidth, parent.width - x - (rowInfo.visible ? rowInfo.width + Style.space(8) : 0))
+        anchors.verticalCenter: parent.verticalCenter
+        elide: Text.ElideRight
+        text: row.item.title || ""
+        color: row.celebrating ? root.dim : root.fg
+        font.family: Style.font.family
+        font.pixelSize: Style.font.body
+        Behavior on color { ColorAnimation { duration: 300 } }
+        Rectangle {
+          id: strike
+          anchors.verticalCenter: parent.verticalCenter
+          width: 0
+          height: Math.max(1, Style.space(2))
+          color: root.fg
+          NumberAnimation on width {
+            id: strikeAnim
+            running: false
+            from: 0; to: title.width; duration: 320; easing.type: Easing.OutCubic
+          }
+        }
+      }
+      Info {
+        id: rowInfo
+        lesson: row.checkIn && !row.revealed ? null : row.item
+        x: title.x + title.width + Style.space(8)
+        anchors.verticalCenter: parent.verticalCenter
+      }
+    }
+
+    // Line 2: one line, always, so the row never changes height.
+    Text {
+      x: root.textCol
+      y: line1.y + line1.height + Style.space(5)
+      width: line1.width
+      elide: Text.ElideRight
+      maximumLineCount: 1
+      text: row.trying ? "Press " + (row.item.keys || "") + " now, then Tried it."
+          : row.checkIn && row.revealed ? "Try it now. " + (row.item.why || "")
+          : row.checkIn ? "Remember the keys? Tick it, or Show me."
+          : (row.item.why || "")
+      color: row.trying ? root.accent : root.dim
+      font.family: Style.font.family
+      font.pixelSize: Style.font.bodySmall
+    }
+  }
+
+  // ---- A row inside an open section -------------------------------------------
+  component SectionRow: Item {
+    id: srow
+    required property var modelData
+    readonly property var item: modelData || ({})
+    readonly property bool mastered: !!item.mastered
+    property bool ticking: false
+    width: parent ? parent.width : 0
+    height: Style.space(32)
+
+    function toggle() {
+      if (ticking) return
+      if (mastered) { root.commit(["undo", item.id], ""); return }
+      ticking = true
+      var p = sbox.mapToItem(confettiLayer, sbox.width / 2, sbox.height / 2)
+      root.burst(confettiLayer, p.x, p.y)
+      root.commit(["done", item.id], item.title)
+      root.hint = ""
+    }
+
+    Rectangle {
+      anchors.fill: parent
+      radius: Style.space(6)
+      color: srowHover.hovered ? Qt.rgba(root.fg.r, root.fg.g, root.fg.b, 0.05) : "transparent"
+    }
+    HoverHandler { id: srowHover }
+
+    Check {
+      id: sbox
+      x: Style.space(30)
+      size: Style.space(16)
+      anchors.verticalCenter: parent.verticalCenter
+      checked: srow.mastered || srow.ticking
+      pop: srow.ticking
+      hintText: srow.mastered ? "Not sure after all? Unmark it" : "Know it: mark it as known"
+      onClicked: srow.toggle()
+    }
+    Keys {
+      id: skeys
+      x: Style.space(58)
+      anchors.verticalCenter: parent.verticalCenter
+      keys: srow.item.keys || ""
+      muted: srow.mastered || srow.ticking
+    }
+    Text {
+      id: stitle
+      x: skeys.x + skeys.width + Style.space(10)
+      width: Math.min(implicitWidth, (note.visible ? note.x : sstar.x) - Style.space(10) - x
+                                     - (sinfo.visible ? sinfo.width + Style.space(8) : 0))
+      anchors.verticalCenter: parent.verticalCenter
+      elide: Text.ElideRight
+      text: srow.item.title || ""
+      color: srow.mastered || srow.ticking ? root.dim : root.fg
+      font.family: Style.font.family
+      font.pixelSize: Style.font.bodySmall
+      font.strikeout: srow.mastered || srow.ticking
+    }
+    Info {
+      id: sinfo
+      lesson: srow.item
+      x: stitle.x + stitle.width + Style.space(8)
+      anchors.verticalCenter: parent.verticalCenter
+    }
+    Star {
+      id: sstar
+      lesson: srow.item
+      x: srow.width - width - Style.space(10)
+      anchors.verticalCenter: parent.verticalCenter
+    }
+    // In practice: how far along, and the next check-in.
+    Text {
+      id: note
+      visible: !!srow.item.practicing && !srow.mastered && !srow.ticking
+      x: sstar.x - width - Style.space(10)
+      anchors.verticalCenter: parent.verticalCenter
+      text: (srow.item.tricky ? "tricky · " : "") + "󰥔 " + srow.item.stage + "/" + srow.item.steps
+            + (srow.item.backIn ? " · " + srow.item.backIn : " · now")
+      color: root.dim
+      font.family: Style.font.family
+      font.pixelSize: Style.font.caption
+    }
+  }
+
+  // ---- The panel ----------------------------------------------------------------
   KeyboardPanel {
     id: panel
     anchorItem: button
@@ -572,24 +769,24 @@ BarWidget {
     bar: root.bar
     open: root.opened
     focusTarget: keyCatcher
-    contentWidth: panel.fittedContentWidth(Style.space(540))
-    contentHeight: panel.fittedContentHeight(column.implicitHeight, Style.space(900))
+    contentWidth: panel.fittedContentWidth(Style.space(580))
+    contentHeight: panel.fittedContentHeight(column.implicitHeight + Style.space(42), Style.space(960))
 
     PanelKeyCatcher {
       id: keyCatcher
       anchors.fill: parent
-      onCloseRequested: root.close()
-
-      // Confetti flies over the list, and can fall past the rows.
-      Item {
-        id: confettiLayer
-        anchors.fill: parent
-        z: 10
+      onCloseRequested: {
+        if (root.detail) root.detail = null
+        else if (root.showIntro) root.showIntro = false
+        else root.close()
       }
 
       Flickable {
         id: scroll
-        anchors.fill: parent
+        anchors.left: parent.left
+        anchors.right: parent.right
+        anchors.top: parent.top
+        anchors.bottom: statusLine.top
         contentWidth: width
         contentHeight: column.implicitHeight
         clip: true
@@ -599,15 +796,16 @@ BarWidget {
         Column {
           id: column
           width: scroll.width
-          spacing: Style.space(4)
+          spacing: 0
 
+          // Header: title, progress count, and the progress bar.
           Item {
             width: parent.width
-            height: title.implicitHeight + Style.space(6)
+            height: Style.space(30)
             Text {
-              id: title
-              anchors.left: parent.left
-              anchors.leftMargin: Style.space(8)
+              id: heading
+              x: Style.space(8)
+              anchors.verticalCenter: parent.verticalCenter
               text: root.complete ? "Shortcut Master 🏆" : "Shortcut Coach"
               color: root.fg
               font.family: Style.font.family
@@ -617,27 +815,23 @@ BarWidget {
             Text {
               anchors.right: parent.right
               anchors.rightMargin: Style.space(8)
-              anchors.baseline: title.baseline
+              anchors.baseline: heading.baseline
               text: root.mastered + " of " + root.total + " mastered"
               color: root.dim
               font.family: Style.font.family
               font.pixelSize: Style.font.bodySmall
             }
           }
-
-          // Overall progress.
           Item {
             width: parent.width
-            height: Style.space(14)
+            height: Style.space(16)
             Rectangle {
-              anchors.left: parent.left
-              anchors.right: parent.right
-              anchors.leftMargin: Style.space(8)
-              anchors.rightMargin: Style.space(8)
+              x: Style.space(8)
+              width: parent.width - Style.space(16)
               anchors.verticalCenter: parent.verticalCenter
               height: Style.space(6)
               radius: height / 2
-              color: Qt.rgba(root.fg.r, root.fg.g, root.fg.b, 0.10)
+              color: root.faint
               Rectangle {
                 height: parent.height
                 radius: parent.radius
@@ -648,156 +842,109 @@ BarWidget {
             }
           }
 
-          // Section-complete banner.
-          Rectangle {
+          Item { width: 1; height: Style.space(14) }
+          SectionLabel { text: "UP NEXT"; visible: upNextModel.count > 0 }
+          Item { width: 1; height: Style.space(4); visible: upNextModel.count > 0 }
+
+          ListView {
+            id: upNext
             width: parent.width
-            height: visible ? bannerLabel.implicitHeight + Style.space(18) : 0
-            visible: root.bannerText !== ""
-            radius: Style.space(6)
-            color: Qt.rgba(root.accent.r, root.accent.g, root.accent.b, 0.18)
-            border.color: root.accent
-            border.width: Math.max(1, Style.space(1))
-            Text {
-              id: bannerLabel
-              anchors.centerIn: parent
-              text: root.bannerText
-              color: root.accent
-              font.family: Style.font.family
-              font.pixelSize: Style.font.body + 2
-              font.bold: true
+            // Six slots, always: the list never changes height as rows come and go.
+            height: (upNextModel.count > 0 ? root.batch : 0) * root.rowHeight
+            interactive: false
+            model: upNextModel
+            delegate: UpNextRow {}
+            remove: Transition {
+              NumberAnimation { property: "opacity"; to: 0; duration: 220; easing.type: Easing.InQuad }
             }
-          }
-
-          // How practice works, the first time someone presses Later.
-          Rectangle {
-            width: parent.width
-            height: visible ? intro.implicitHeight + Style.space(24) : 0
-            visible: root.showIntro
-            radius: Style.space(6)
-            color: Qt.rgba(root.accent.r, root.accent.g, root.accent.b, 0.10)
-            border.color: Qt.rgba(root.accent.r, root.accent.g, root.accent.b, 0.6)
-            border.width: Math.max(1, Style.space(1))
-            Column {
-              id: intro
-              anchors.left: parent.left
-              anchors.right: parent.right
-              anchors.top: parent.top
-              anchors.margins: Style.space(12)
-              spacing: Style.space(8)
-              Text {
-                text: "⏳  Practice mode"
-                color: root.accent
-                font.family: Style.font.family
-                font.pixelSize: Style.font.body + 1
-                font.bold: true
-              }
-              Text {
-                width: parent.width
-                wrapMode: Text.WordWrap
-                text: "Not sure yet? Try it once now. Then it steps aside and comes back as a quick check-in while you work: after 10 minutes, 1 hour, 1 day, 4 days, 2 weeks and 6 weeks."
-                color: root.fg
-                font.family: Style.font.family
-                font.pixelSize: Style.font.bodySmall
-              }
-              Text {
-                width: parent.width
-                wrapMode: Text.WordWrap
-                text: "Each time you recall a shortcut just as it starts to fade, the memory lasts longer than before, so check-ins get further apart. It's the idea behind Pimsleur's graduated interval recall, tuned with later research: recalling beats re-reading, and a night's sleep helps it stick."
-                color: root.dim
-                font.family: Style.font.family
-                font.pixelSize: Style.font.bodySmall
-              }
-              Text {
-                width: parent.width
-                wrapMode: Text.WordWrap
-                text: "Remember it and the next gap is longer. Forget, and it comes back sooner. Pass all six and it's locked in. Check-ins wait for a pause in your typing: at most one every 15 minutes, 8 a day."
-                color: root.dim
-                font.family: Style.font.family
-                font.pixelSize: Style.font.bodySmall
-              }
-              Text {
-                text: "Got it"
-                color: introMouse.containsMouse ? root.fg : root.accent
-                font.family: Style.font.family
-                font.pixelSize: Style.font.body
-                font.bold: true
-                font.underline: introMouse.containsMouse
-                MouseArea {
-                  id: introMouse
-                  anchors.fill: parent
-                  anchors.margins: -Style.space(6)
-                  hoverEnabled: true
-                  cursorShape: Qt.PointingHandCursor
-                  onClicked: { root.showIntro = false; root.run(["intro-seen"]) }
-                }
-              }
+            add: Transition {
+              NumberAnimation { property: "opacity"; from: 0; to: 1; duration: 320; easing.type: Easing.OutQuad }
             }
-          }
-
-          SectionLabel { text: "UP NEXT"; visible: root.current.length > 0 }
-
-          Repeater {
-            model: root.current
-            delegate: Lesson {}
-          }
-
-          // Undo for the last "I know it", in case it was a slip.
-          Item {
-            width: parent.width
-            height: visible ? undoText.implicitHeight + Style.space(10) : 0
-            visible: root.undoTitle !== ""
-            Text {
-              id: undoText
-              anchors.left: parent.left
-              anchors.leftMargin: Style.space(8)
-              anchors.right: undoLink.left
-              anchors.rightMargin: Style.space(10)
-              anchors.verticalCenter: parent.verticalCenter
-              elide: Text.ElideRight
-              text: "✓ Marked “" + root.undoTitle + "” as known"
-              color: root.dim
-              font.family: Style.font.family
-              font.pixelSize: Style.font.bodySmall
+            displaced: Transition {
+              NumberAnimation { properties: "y"; duration: 280; easing.type: Easing.OutCubic }
             }
-            Text {
-              id: undoLink
-              anchors.right: parent.right
-              anchors.rightMargin: Style.space(8)
-              anchors.verticalCenter: parent.verticalCenter
-              text: "Undo"
-              color: undoMouse.containsMouse ? root.fg : root.accent
-              font.family: Style.font.family
-              font.pixelSize: Style.font.bodySmall
-              font.bold: true
-              font.underline: undoMouse.containsMouse
-              MouseArea {
-                id: undoMouse
-                anchors.fill: parent
-                anchors.margins: -Style.space(6)
-                hoverEnabled: true
-                cursorShape: Qt.PointingHandCursor
-                onClicked: {
-                  root.commit(root.undoArgs, "")
-                  root.flush()
-                  root.undoTitle = ""
-                }
-              }
+            move: Transition {
+              NumberAnimation { properties: "y"; duration: 280; easing.type: Easing.OutCubic }
             }
           }
 
           Text {
-            visible: root.current.length === 0
+            visible: upNextModel.count === 0
             width: parent.width
             horizontalAlignment: Text.AlignHCenter
-            topPadding: Style.space(12)
-            bottomPadding: Style.space(12)
-            text: root.complete ? "Every shortcut mastered. Nicely done." : "All caught up."
+            topPadding: Style.space(14)
+            bottomPadding: Style.space(14)
+            text: root.complete ? "Every shortcut mastered. Nicely done." : "All caught up. Check-ins will bring a few back."
             color: root.dim
             font.family: Style.font.family
             font.pixelSize: Style.font.body
           }
 
+          Item { width: 1; height: Style.space(14) }
           SectionLabel { text: "ALL SHORTCUTS" }
+          Item { width: 1; height: Style.space(4) }
+
+          // Favorites: starred shortcuts, open unless folded.
+          Column {
+            id: favs
+            visible: root.favorites.length > 0
+            readonly property bool open: root.expanded["fav"] !== false
+            width: column.width
+            Item {
+              width: parent.width
+              height: Style.space(32)
+              Rectangle {
+                anchors.fill: parent
+                radius: Style.space(6)
+                color: favMouse.containsMouse ? Qt.rgba(root.fg.r, root.fg.g, root.fg.b, 0.05) : "transparent"
+              }
+              MouseArea {
+                id: favMouse
+                anchors.fill: parent
+                hoverEnabled: true
+                cursorShape: Qt.PointingHandCursor
+                onClicked: {
+                  var next = Object.assign({}, root.expanded)
+                  next["fav"] = !favs.open
+                  root.expanded = next
+                }
+              }
+              Text {
+                x: Style.space(10)
+                width: Style.space(12)
+                anchors.verticalCenter: parent.verticalCenter
+                text: "›"
+                rotation: favs.open ? 90 : 0
+                Behavior on rotation { NumberAnimation { duration: 160 } }
+                color: root.dim
+                font.family: Style.font.family
+                font.pixelSize: Style.font.body + 2
+                font.bold: true
+              }
+              Text {
+                x: Style.space(30)
+                anchors.verticalCenter: parent.verticalCenter
+                text: "󰓎  Favorites"
+                color: root.fg
+                font.family: Style.font.family
+                font.pixelSize: Style.font.body
+                font.bold: true
+              }
+              Text {
+                anchors.right: parent.right
+                anchors.rightMargin: Style.space(10)
+                anchors.verticalCenter: parent.verticalCenter
+                text: root.favorites.length
+                color: root.dim
+                font.family: Style.font.family
+                font.pixelSize: Style.font.bodySmall
+              }
+            }
+            Repeater {
+              model: favs.open ? root.favorites : []
+              delegate: SectionRow {}
+            }
+          }
 
           Repeater {
             model: root.sections
@@ -807,16 +954,14 @@ BarWidget {
               readonly property bool open: !!root.expanded[modelData.level]
               readonly property bool finished: modelData.done === modelData.total
               width: column.width
-              spacing: Style.space(2)
 
               Item {
                 width: parent.width
-                height: sectionName.implicitHeight + Style.space(14)
-
+                height: Style.space(32)
                 Rectangle {
                   anchors.fill: parent
                   radius: Style.space(6)
-                  color: headerMouse.containsMouse ? Qt.rgba(root.fg.r, root.fg.g, root.fg.b, 0.06) : "transparent"
+                  color: headerMouse.containsMouse ? Qt.rgba(root.fg.r, root.fg.g, root.fg.b, 0.05) : "transparent"
                 }
                 MouseArea {
                   id: headerMouse
@@ -826,41 +971,44 @@ BarWidget {
                   onClicked: root.toggleSection(section.modelData.level)
                 }
                 Text {
-                  id: sectionName
-                  anchors.left: parent.left
-                  anchors.leftMargin: Style.space(8)
+                  id: chevron
+                  x: Style.space(10)
+                  width: Style.space(12)
                   anchors.verticalCenter: parent.verticalCenter
-                  text: (section.open ? "▾  " : "▸  ") + section.modelData.name
+                  text: "›"
+                  rotation: section.open ? 90 : 0
+                  Behavior on rotation { NumberAnimation { duration: 160 } }
+                  color: root.dim
+                  font.family: Style.font.family
+                  font.pixelSize: Style.font.body + 2
+                  font.bold: true
+                }
+                Text {
+                  x: Style.space(30)
+                  anchors.verticalCenter: parent.verticalCenter
+                  text: section.modelData.name
                   color: section.finished ? root.accent : root.fg
                   font.family: Style.font.family
                   font.pixelSize: Style.font.body
                   font.bold: true
                 }
-                // Check off the whole section, for shortcuts you already know.
-                Text {
+                // Tick the whole section, for shortcuts you already know.
+                Link {
                   visible: section.open && !section.finished
                   anchors.right: count.left
-                  anchors.rightMargin: Style.space(14)
+                  anchors.rightMargin: Style.space(16)
                   anchors.verticalCenter: parent.verticalCenter
                   text: "I know these"
-                  color: knowMouse.containsMouse ? root.accent : root.dim
-                  font.family: Style.font.family
                   font.pixelSize: Style.font.caption
-                  font.underline: knowMouse.containsMouse
-                  MouseArea {
-                    id: knowMouse
-                    anchors.fill: parent
-                    anchors.margins: -Style.space(4)
-                    hoverEnabled: true
-                    cursorShape: Qt.PointingHandCursor
-                    onClicked: root.run(["done-section", String(section.modelData.level)])
-                  }
+                  onClicked: root.run(["done-section", String(section.modelData.level)])
                 }
                 Text {
                   id: count
                   anchors.right: parent.right
-                  anchors.rightMargin: Style.space(8)
+                  anchors.rightMargin: Style.space(10)
                   anchors.verticalCenter: parent.verticalCenter
+                  width: Style.space(44)
+                  horizontalAlignment: Text.AlignRight
                   text: section.finished ? "✓ " + section.modelData.total : section.modelData.done + "/" + section.modelData.total
                   color: section.finished ? root.accent : root.dim
                   font.family: Style.font.family
@@ -871,46 +1019,294 @@ BarWidget {
 
               Repeater {
                 model: section.open ? section.modelData.items : []
-                delegate: Lesson { compact: true }
+                delegate: SectionRow {}
               }
             }
           }
 
-          // Practice status and a pause switch for meetings.
-          Item {
-            width: parent.width
-            height: footer.implicitHeight + Style.space(18)
-            visible: root.practicing > 0 || root.paused
+        }
+      }
+
+      // Status line, pinned under the scrolling content at a fixed height,
+      // so hints and Undo never move anything and are always in view.
+      Item {
+        id: statusLine
+        anchors.left: parent.left
+        anchors.right: parent.right
+        anchors.bottom: parent.bottom
+        height: Style.space(42)
+        Rectangle { x: Style.space(8); width: parent.width - Style.space(16); height: 1; color: root.faint }
+        Item {
+          y: Style.space(4)
+          width: parent.width
+          height: Style.space(38)
+
+                // What the hovered control does.
+                Text {
+                  visible: root.hint !== ""
+                  x: Style.space(8)
+                  width: parent.width - Style.space(16)
+                  anchors.verticalCenter: parent.verticalCenter
+                  elide: Text.ElideRight
+                  text: root.hint
+                  color: root.accent
+                  font.family: Style.font.family
+                  font.pixelSize: Style.font.bodySmall
+                }
+
+                // Undo for the last "know it", in case it was a slip.
+                Item {
+                  anchors.fill: parent
+                  visible: root.hint === "" && root.undoTitle !== ""
+                  Text {
+                    x: Style.space(8)
+                    width: undoLink.x - x - Style.space(12)
+                    anchors.verticalCenter: parent.verticalCenter
+                    elide: Text.ElideRight
+                    text: "✓ Marked “" + root.undoTitle + "” as known"
+                    color: root.dim
+                    font.family: Style.font.family
+                    font.pixelSize: Style.font.bodySmall
+                  }
+                  Link {
+                    id: undoLink
+                    anchors.right: parent.right
+                    anchors.rightMargin: Style.space(10)
+                    anchors.verticalCenter: parent.verticalCenter
+                    text: "Undo"
+                    strong: true
+                    onClicked: {
+                      if (!root.undoArgs) return
+                      root.run(root.undoArgs)
+                      root.undoTitle = ""
+                    }
+                  }
+                }
+
+                // Practice status, and pause for meetings.
+                Item {
+                  anchors.fill: parent
+                  visible: root.hint === "" && root.undoTitle === "" && (root.practicing > 0 || root.paused)
+                  Text {
+                    x: Style.space(8)
+                    anchors.verticalCenter: parent.verticalCenter
+                    text: "󰥔 " + root.practicing + " in practice · check-ins " + (root.paused ? "paused" : "on")
+                    color: root.dim
+                    font.family: Style.font.family
+                    font.pixelSize: Style.font.bodySmall
+                  }
+                  Link {
+                    anchors.right: parent.right
+                    anchors.rightMargin: Style.space(10)
+                    anchors.verticalCenter: parent.verticalCenter
+                    text: root.paused ? "Resume" : "Pause"
+                    onClicked: root.run(["pause", root.paused ? "off" : "on"])
+                  }
+                }
+              }
+
+        }
+
+      // Section-complete banner, floating over the header.
+      Rectangle {
+        z: 20
+        x: Style.space(4)
+        y: Style.space(2)
+        width: parent.width - Style.space(8)
+        height: Style.space(44)
+        radius: Style.space(8)
+        visible: opacity > 0
+        opacity: root.bannerText !== "" ? 1 : 0
+        Behavior on opacity { NumberAnimation { duration: 220 } }
+        color: Commons.Color.popups.background
+        border.color: root.accent
+        border.width: Math.max(1, Style.space(2))
+        MouseArea { anchors.fill: parent; enabled: parent.visible }
+        Rectangle {
+          anchors.fill: parent
+          radius: parent.radius
+          color: Qt.rgba(root.accent.r, root.accent.g, root.accent.b, 0.16)
+        }
+        Text {
+          anchors.centerIn: parent
+          text: root.bannerText
+          color: root.accent
+          font.family: Style.font.family
+          font.pixelSize: Style.font.body + 2
+          font.bold: true
+        }
+      }
+
+      // How practice works, the first time someone presses Practice.
+      Rectangle {
+        id: introLayer
+        z: 30
+        anchors.fill: parent
+        visible: opacity > 0
+        opacity: root.showIntro ? 1 : 0
+        Behavior on opacity { NumberAnimation { duration: 200 } }
+        color: Qt.rgba(Commons.Color.popups.background.r, Commons.Color.popups.background.g,
+                       Commons.Color.popups.background.b, 0.88)
+        MouseArea { anchors.fill: parent; enabled: introLayer.visible }
+
+        Rectangle {
+          anchors.centerIn: parent
+          width: parent.width - Style.space(40)
+          height: introText.implicitHeight + Style.space(36)
+          radius: Style.space(10)
+          color: Commons.Color.popups.background
+          border.color: root.accent
+          border.width: Math.max(1, Style.space(2))
+          Column {
+            id: introText
+            x: Style.space(18)
+            y: Style.space(18)
+            width: parent.width - Style.space(36)
+            spacing: Style.space(10)
             Text {
-              id: footer
-              anchors.left: parent.left
-              anchors.leftMargin: Style.space(8)
-              anchors.verticalCenter: parent.verticalCenter
-              text: "⏳ " + root.practicing + " in practice · check-ins " + (root.paused ? "paused" : "on")
+              text: "󰥔  How practice works"
+              color: root.accent
+              font.family: Style.font.family
+              font.pixelSize: Style.font.body + 2
+              font.bold: true
+            }
+            Text {
+              width: parent.width
+              wrapMode: Text.WordWrap
+              text: "Try the shortcut once now. Then it steps aside and comes back as a quick check-in while you work: after 10 minutes, 1 hour, 1 day, 4 days, 2 weeks and 6 weeks."
+              color: root.fg
+              font.family: Style.font.family
+              font.pixelSize: Style.font.bodySmall
+              lineHeight: 1.25
+            }
+            Text {
+              width: parent.width
+              wrapMode: Text.WordWrap
+              text: "Each time you recall a shortcut just as it starts to fade, the memory lasts longer, so check-ins get further apart. It's Pimsleur's graduated interval recall, tuned with later research: recalling beats re-reading, and a night's sleep helps it stick."
               color: root.dim
               font.family: Style.font.family
               font.pixelSize: Style.font.bodySmall
+              lineHeight: 1.25
             }
             Text {
-              anchors.right: parent.right
-              anchors.rightMargin: Style.space(8)
-              anchors.verticalCenter: parent.verticalCenter
-              text: root.paused ? "Resume" : "Pause"
-              color: pauseMouse.containsMouse ? root.accent : root.dim
+              width: parent.width
+              wrapMode: Text.WordWrap
+              text: "Remember it and the next gap is longer. Forget, and it comes back sooner. Pass all six and it's locked in. Check-ins wait for a pause in your typing: at most one every 15 minutes, 8 a day."
+              color: root.dim
               font.family: Style.font.family
               font.pixelSize: Style.font.bodySmall
-              font.underline: pauseMouse.containsMouse
-              MouseArea {
-                id: pauseMouse
-                anchors.fill: parent
-                anchors.margins: -Style.space(6)
-                hoverEnabled: true
-                cursorShape: Qt.PointingHandCursor
-                onClicked: root.run(["pause", root.paused ? "off" : "on"])
-              }
+              lineHeight: 1.25
+            }
+            Item { width: 1; height: Style.space(2) }
+            Pill {
+              label: "Got it"
+              primary: true
+              onClicked: { root.showIntro = false; root.run(["intro-seen"]) }
             }
           }
         }
+      }
+
+      // The longer explanation for one lesson (the ⓘ button).
+      Rectangle {
+        id: detailLayer
+        z: 35
+        anchors.fill: parent
+        visible: opacity > 0
+        opacity: root.detail ? 1 : 0
+        Behavior on opacity { NumberAnimation { duration: 180 } }
+        color: Qt.rgba(Commons.Color.popups.background.r, Commons.Color.popups.background.g,
+                       Commons.Color.popups.background.b, 0.88)
+        // Kept while fading out, so the card doesn't empty mid-fade.
+        property var shown: null
+        Connections {
+          target: root
+          function onDetailChanged() { if (root.detail) detailLayer.shown = root.detail }
+        }
+        MouseArea {
+          anchors.fill: parent
+          enabled: detailLayer.visible
+          onClicked: root.detail = null
+        }
+
+        Rectangle {
+          anchors.centerIn: parent
+          width: parent.width - Style.space(40)
+          height: Math.min(parent.height - Style.space(24), detailText.implicitHeight + Style.space(36))
+          radius: Style.space(10)
+          color: Commons.Color.popups.background
+          border.color: root.accent
+          border.width: Math.max(1, Style.space(2))
+          MouseArea { anchors.fill: parent }  // clicks inside don't close it
+
+          // Scrolls when a long explanation doesn't fit.
+          Flickable {
+            anchors.fill: parent
+            anchors.margins: Style.space(18)
+            contentWidth: width
+            contentHeight: detailText.implicitHeight
+            clip: true
+            boundsBehavior: Flickable.StopAtBounds
+            interactive: contentHeight > height
+
+          Column {
+            id: detailText
+            width: parent.width
+            spacing: Style.space(12)
+
+            Item {
+              width: parent.width
+              height: Math.max(detailKeys.height, detailTitle.implicitHeight)
+              Keys {
+                id: detailKeys
+                keys: detailLayer.shown ? detailLayer.shown.keys : ""
+                anchors.verticalCenter: parent.verticalCenter
+              }
+              Text {
+                id: detailTitle
+                x: detailKeys.width + Style.space(10)
+                width: parent.width - x - Style.space(24)
+                anchors.verticalCenter: parent.verticalCenter
+                elide: Text.ElideRight
+                text: detailLayer.shown ? detailLayer.shown.title : ""
+                color: root.fg
+                font.family: Style.font.family
+                font.pixelSize: Style.font.body + 2
+                font.bold: true
+              }
+              Link {
+                anchors.right: parent.right
+                anchors.verticalCenter: parent.verticalCenter
+                text: "✕"
+                font.pixelSize: Style.font.body
+                onClicked: root.detail = null
+              }
+            }
+
+            Repeater {
+              model: detailLayer.shown && detailLayer.shown.more ? detailLayer.shown.more.split("\n\n") : []
+              delegate: Text {
+                required property string modelData
+                required property int index
+                width: detailText.width
+                wrapMode: Text.WordWrap
+                text: modelData
+                color: index === 0 ? root.fg : Qt.rgba(root.fg.r, root.fg.g, root.fg.b, 0.82)
+                font.family: Style.font.family
+                font.pixelSize: Style.font.bodySmall
+                lineHeight: 1.3
+              }
+            }
+          }
+          }
+        }
+      }
+
+      // Confetti flies over everything.
+      Item {
+        id: confettiLayer
+        z: 40
+        anchors.fill: parent
       }
     }
   }

@@ -42,6 +42,11 @@ The cap icon (󰑴) appears on the right of the bar. Click it to start.
 - **󰥔 Practice:** you're not sure. Try it once right away, then it steps
   aside and comes back for quick check-ins.
 
+Star (☆) any shortcut to keep it in **Favorites**, your own cheat sheet at
+the top of the list. Some shortcuts have an ⓘ that opens a fuller
+explanation, for ideas a one-line tip can't carry (the scratchpad, groups,
+pop-out versus float).
+
 **All shortcuts** lists every lesson in five sections: Essentials, Daily
 Driver, Window Wrangler, Power User and Omarchy Master. Nothing is locked.
 Open a section to tick anything you already know, or press **I know these**
@@ -90,6 +95,7 @@ $coach done <id>          # mark as known
 $coach undo <id>          # bring one back
 $coach later <id>         # start practice
 $coach done-section 2     # tick a whole section
+$coach fav <id>           # star it (your favorites list)
 $coach pause on           # pause check-ins
 $coach batch 8            # show 8 in up next (default 6)
 $coach reset --yes        # start over (keeps lessons you added)

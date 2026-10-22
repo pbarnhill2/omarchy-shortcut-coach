@@ -269,11 +269,13 @@ Item {
           font.bold: true
         }
 
-        // The answer, shown after "Show me".
+        // The answer, shown after "Show me". Its space is always reserved,
+        // so the buttons never move under the pointer.
         Column {
           width: parent.width
           spacing: Style.space(6)
-          visible: root.revealed
+          opacity: root.revealed ? 1 : 0
+          Behavior on opacity { NumberAnimation { duration: 160 } }
           Rectangle {
             width: keys.implicitWidth + Style.space(16)
             height: keys.implicitHeight + Style.space(8)
@@ -299,10 +301,15 @@ Item {
           }
         }
 
+        // Buttons, or the result once answered, in the same fixed slot.
+        Item {
+          width: parent.width
+          height: answerRow.height
         Text {
           width: parent.width
+          anchors.verticalCenter: parent.verticalCenter
           visible: root.message !== ""
-          wrapMode: Text.WordWrap
+          elide: Text.ElideRight
           text: root.message
           color: root.accent
           font.family: Style.font.family
@@ -311,6 +318,7 @@ Item {
         }
 
         Row {
+          id: answerRow
           spacing: Style.space(10)
           visible: root.message === ""
           // No second answer while one is saving.
@@ -337,6 +345,7 @@ Item {
             primary: true
             onClicked: root.hide()
           }
+        }
         }
       }
     }
