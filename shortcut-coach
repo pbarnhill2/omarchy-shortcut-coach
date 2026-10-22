@@ -1,25 +1,49 @@
 #!/usr/bin/env python3
-"""Shortcut Coach: a checklist of Omarchy shortcuts you're learning.
+"""Shortcut Coach: learn Omarchy shortcuts a few at a time.
 
-  shortcut-coach list [--all] [--json]   what you're learning now (--all: everything)
+  shortcut-coach list [--all] [--json]   up next (--all: every section)
   shortcut-coach add KEYS TITLE [WHY]    add your own shortcut to the front of the queue
-  shortcut-coach done ID                 check one off (mastered)
+  shortcut-coach done ID                 got it: mastered for good
   shortcut-coach undo ID                 put a mastered one back
+  shortcut-coach later ID                not sure yet: practice it with spaced check-ins
+  shortcut-coach checkin ID pass|fail|skip
+                                         answer a check-in (pass moves it a step along,
+                                         fail steps it back, skip asks again soon)
+  shortcut-coach due [--json]            the practice shortcut due for a check-in, if any
+  shortcut-coach pause on|off            pause or resume check-ins
+  shortcut-coach intro-seen              don't explain practice again
   shortcut-coach remove ID               delete one you added
-  shortcut-coach batch N                 how many to learn at once (default 6)
+  shortcut-coach batch N                 how many to show in up next (default 6)
   shortcut-coach done-section N          check off a whole section (1-5; 0 = added for you)
   shortcut-coach reset                   start over (keeps lessons you added)
 
 Lessons are grouped into sections, Essentials first. "Up next" walks them in
-order; any lesson can be checked off from its section. Progress lives in ~/.local/state/omarchy-shortcut-coach.json. The built-in
-lessons come from curriculum.json next to this script; each lesson shows the
-keys from your live Hyprland bindings, so rebound shortcuts show your keys.
+order; any lesson can be checked off from its section.
+
+Practice follows graduated interval recall (the Pimsleur method): a shortcut
+you're unsure of comes back for a quick check-in after 10 minutes, then 1
+hour, 5 hours, 1 day, 5 days and 25 days. Each gap is about five times the
+last, so every check lands just before you'd forget. Pass the last one and
+it's locked in.
+
+Progress lives in ~/.local/state/omarchy-shortcut-coach.json. Each lesson
+shows the keys from your live Hyprland bindings, so rebound shortcuts show
+your keys.
 """
 import datetime, json, os, re, subprocess, sys, tempfile
 
 HERE = os.path.dirname(os.path.realpath(__file__))
-STATE = os.path.expanduser("~/.local/state/omarchy-shortcut-coach.json")
+# SHORTCUT_COACH_STATE points tests at a scratch file, never your progress.
+STATE = os.environ.get("SHORTCUT_COACH_STATE") or os.path.expanduser("~/.local/state/omarchy-shortcut-coach.json")
 FAMILY = re.compile(r"ARROWS|1-9|/")
+# Minutes until each check-in: 10m, 1h, 5h, 1d, 5d, 25d.
+STEPS = [10, 60, 300, 1440, 7200, 36000]
+RETRY_MINUTES = 10   # after "show me"
+SKIP_MINUTES = 15    # check-in ignored or dismissed
+
+
+def now():
+    return datetime.datetime.now().replace(microsecond=0)
 
 
 def load_state():
@@ -31,6 +55,10 @@ def load_state():
     s.setdefault("mastered", {})
     s.setdefault("custom", [])
     s.setdefault("batch", 6)
+    s.setdefault("practice", {})
+    s.setdefault("paused", False)
+    s.setdefault("introSeen", False)
+    s.pop("snoozed", None)
     return s
 
 
@@ -64,9 +92,19 @@ def curriculum():
         return json.load(f)
 
 
+def humanize(delta):
+    minutes = delta.total_seconds() / 60
+    if minutes < 60:
+        return f"{max(1, round(minutes))}m"
+    if minutes < 36 * 60:
+        return f"{round(minutes / 60)}h"
+    return f"{round(minutes / 1440)}d"
+
+
 def lessons(s, cur):
     live = live_bindings()
-    items = [dict(c, custom=True, level=0) for c in s["custom"]]
+    names = cur["levels"]
+    items = [dict(c, custom=True, level=0, section="Added for you") for c in s["custom"]]
     for c in cur["lessons"]:
         c = dict(c)
         if live is not None:
@@ -74,24 +112,32 @@ def lessons(s, cur):
                 continue  # not bound on this machine
             if not FAMILY.search(c["keys"]):
                 c["keys"] = live[c["action"]]
-        items.append(dict(c, custom=False))
+        items.append(dict(c, custom=False, section=names.get(str(c["level"]), "")))
+    t = now()
     for item in items:
         item["mastered"] = s["mastered"].get(item["id"])
+        p = s["practice"].get(item["id"]) if not item["mastered"] else None
+        due = datetime.datetime.fromisoformat(p["due"]) if p else None
+        item["practicing"] = bool(p)
+        item["stage"] = p["stage"] if p else 0
+        item["steps"] = len(STEPS)
+        item["checkIn"] = bool(p) and due <= t
+        item["backIn"] = humanize(due - t) if p and due > t else ""
     return items
 
 
 def progress(s):
     """Lessons grouped into sections. Nothing is locked: "up next" walks the
-    sections in order, and any lesson can be checked off from its section."""
+    sections in order, check-ins that are due come first, and shortcuts in
+    practice step aside until their next check-in."""
     cur = curriculum()
     items = lessons(s, cur)
-    names = cur["levels"]
     sections = []
     for level in sorted({i["level"] for i in items if i["level"] > 0}):
         members = [i for i in items if i["level"] == level]
         sections.append({
             "level": level,
-            "name": names.get(str(level), f"Section {level}"),
+            "name": cur["levels"].get(str(level), f"Section {level}"),
             "done": sum(1 for i in members if i["mastered"]),
             "total": len(members),
             "items": members,
@@ -100,7 +146,8 @@ def progress(s):
     if added:
         sections.insert(0, {"level": 0, "name": "Added for you", "items": added,
                             "done": sum(1 for i in added if i["mastered"]), "total": len(added)})
-    up_next = [i for sec in sections for i in sec["items"] if not i["mastered"]]
+    ordered = [i for sec in sections for i in sec["items"] if not i["mastered"]]
+    up_next = [i for i in ordered if i["checkIn"]] + [i for i in ordered if not i["practicing"]]
     mastered = sum(1 for i in items if i["mastered"])
     return {
         "batch": s["batch"],
@@ -109,7 +156,18 @@ def progress(s):
         "mastered": mastered,
         "total": len(items),
         "complete": mastered == len(items) and len(items) > 0,
+        "practicing": sum(1 for i in items if i["practicing"]),
+        "checkIns": sum(1 for i in items if i["checkIn"]),
+        "paused": s["paused"],
+        "introSeen": s["introSeen"],
+        "steps": STEPS,
     }
+
+
+def schedule(s, lesson_id, minutes, stage):
+    due = now() + datetime.timedelta(minutes=minutes)
+    s["practice"][lesson_id] = {"stage": stage, "due": due.isoformat()}
+    return humanize(due - now())
 
 
 def slug(text):
@@ -132,27 +190,29 @@ def main(argv):
             for sec in p["sections"]:
                 print(f"\n{sec['name']} ({sec['done']}/{sec['total']})")
                 for i in sec["items"]:
-                    mark = "x" if i["mastered"] else " "
-                    print(f"  [{mark}] {i['keys']:<26} {i['title']}  ({i['id']})")
+                    mark = "x" if i["mastered"] else ("~" if i["practicing"] else " ")
+                    note = f"  step {i['stage']}/{i['steps']}, next check {i['backIn'] or 'now'}" if i["practicing"] else ""
+                    print(f"  [{mark}] {i['keys']:<26} {i['title']}  ({i['id']}){note}")
         else:
             print("Up next:")
             for i in p["upNext"][: p["batch"]]:
-                print(f"  [ ] {i['keys']:<26} {i['title']}  ({i['id']})")
-        print(f"\n{p['mastered']} of {p['total']} mastered")
+                tag = "  [check-in]" if i["checkIn"] else ""
+                print(f"  [ ] {i['keys']:<26} {i['title']}  ({i['id']}){tag}")
+        print(f"\n{p['mastered']} of {p['total']} mastered, {p['practicing']} in practice"
+              + (" (check-ins paused)" if p["paused"] else ""))
         return 0
 
-    if cmd == "done-section" and args and args[0].isdigit():
-        today = datetime.date.today().isoformat()
-        for sec in progress(s)["sections"]:
-            if sec["level"] == int(args[0]):
-                for i in sec["items"]:
-                    s["mastered"].setdefault(i["id"], today)
-        save_state(s)
-        return 0
-
-    if cmd == "reset":
-        s["mastered"] = {}
-        save_state(s)
+    if cmd == "due":
+        if s["paused"]:
+            item = None
+        else:
+            due = [i for i in lessons(s, curriculum()) if i["checkIn"]]
+            due.sort(key=lambda i: s["practice"][i["id"]]["due"])
+            item = due[0] if due else None
+        if "--json" in args:
+            print(json.dumps(item or {}))
+        elif item:
+            print(f"{item['id']}: {item['title']} (step {item['stage'] + 1} of {item['steps']})")
         return 0
 
     if cmd == "add" and len(args) >= 2:
@@ -170,22 +230,82 @@ def main(argv):
 
     if cmd == "done" and args:
         s["mastered"][args[0]] = datetime.date.today().isoformat()
+        s["practice"].pop(args[0], None)
         save_state(s)
         return 0
 
     if cmd == "undo" and args:
         s["mastered"].pop(args[0], None)
+        s["practice"].pop(args[0], None)
+        save_state(s)
+        return 0
+
+    if cmd == "later" and args:
+        p = s["practice"].get(args[0])
+        # Already practicing and unsure again: one step back, ask again soon.
+        if p:
+            print("back in " + schedule(s, args[0], RETRY_MINUTES, max(0, p["stage"] - 1)))
+        else:
+            print("back in " + schedule(s, args[0], STEPS[0], 0))
+        save_state(s)
+        return 0
+
+    if cmd == "checkin" and len(args) == 2 and args[1] in ("pass", "fail", "skip"):
+        lesson_id, answer = args
+        p = s["practice"].get(lesson_id)
+        if not p:
+            return 1
+        if answer == "pass":
+            stage = p["stage"] + 1
+            if stage >= len(STEPS):
+                s["practice"].pop(lesson_id)
+                s["mastered"][lesson_id] = datetime.date.today().isoformat()
+                print("locked in")
+            else:
+                print("back in " + schedule(s, lesson_id, STEPS[stage], stage))
+        elif answer == "fail":
+            print("back in " + schedule(s, lesson_id, RETRY_MINUTES, max(0, p["stage"] - 1)))
+        else:
+            print("back in " + schedule(s, lesson_id, SKIP_MINUTES, p["stage"]))
+        save_state(s)
+        return 0
+
+    if cmd == "pause" and args and args[0] in ("on", "off"):
+        s["paused"] = args[0] == "on"
+        save_state(s)
+        return 0
+
+    if cmd == "intro-seen":
+        s["introSeen"] = True
         save_state(s)
         return 0
 
     if cmd == "remove" and args:
         s["custom"] = [c for c in s["custom"] if c["id"] != args[0]]
         s["mastered"].pop(args[0], None)
+        s["practice"].pop(args[0], None)
         save_state(s)
         return 0
 
     if cmd == "batch" and args and args[0].isdigit() and int(args[0]) > 0:
         s["batch"] = int(args[0])
+        save_state(s)
+        return 0
+
+    if cmd == "done-section" and args and args[0].isdigit():
+        today = datetime.date.today().isoformat()
+        for sec in progress(s)["sections"]:
+            if sec["level"] == int(args[0]):
+                for i in sec["items"]:
+                    s["mastered"].setdefault(i["id"], today)
+                    s["practice"].pop(i["id"], None)
+        save_state(s)
+        return 0
+
+    if cmd == "reset":
+        s["mastered"] = {}
+        s["practice"] = {}
+        s["introSeen"] = False
         save_state(s)
         return 0
 

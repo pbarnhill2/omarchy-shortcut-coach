@@ -2,12 +2,14 @@
   "schemaVersion": 1,
   "id": "pbarnhill.shortcut-coach",
   "name": "Shortcut Coach",
-  "version": "0.3.0",
+  "version": "0.4.0",
   "author": "Patrick Barnhill",
   "license": "MIT",
   "description": "Learn Omarchy shortcuts a few at a time. A short checklist in the bar; check one off when you know it and the next one takes its place.",
-  "kinds": ["bar-widget"],
+  "kinds": ["service", "bar-widget"],
+  "keepLoaded": true,
   "entryPoints": {
+    "service": "Service.qml",
     "barWidget": "BarWidget.qml"
   },
   "barWidget": {

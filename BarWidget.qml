@@ -32,6 +32,11 @@ BarWidget {
   // Done counts from the last refresh, to spot a section being finished.
   property var lastDone: ({})
   property string bannerText: ""
+  property int practicing: 0
+  property bool paused: false
+  property bool introSeen: true
+  // The practice explainer, shown the first time someone presses Later.
+  property bool showIntro: false
   readonly property var current: upNext.slice(0, batch)
 
   readonly property color fg: Commons.Color.popups.text
@@ -39,7 +44,7 @@ BarWidget {
   readonly property color accent: Commons.Color.accent
 
   function open() { opened = true; refresh() }
-  function close() { opened = false }
+  function close() { opened = false; showIntro = false }
   function closeForPopoutSwitch() {
     popoutSwitchClosing = true
     close()
@@ -105,6 +110,9 @@ BarWidget {
         root.mastered = data.mastered || 0
         root.total = data.total || 0
         root.complete = !!data.complete
+        root.practicing = data.practicing || 0
+        root.paused = !!data.paused
+        root.introSeen = !!data.introSeen
         if (root.opened) {
           if (root.complete && !wasComplete) root.celebrate("🏆  Shortcut Master!")
           else if (finished !== "") root.celebrate("🎉  " + finished + " complete!")
@@ -129,6 +137,7 @@ BarWidget {
     text: "󰑴"
     slotSize: Style.bar.statusSlot
     tooltipText: root.opened ? "" : "Shortcut Coach · " + root.mastered + " of " + root.total + " mastered"
+                                  + (root.practicing > 0 ? " · " + root.practicing + " in practice" : "")
     onPressed: function(b) {
       if (b === Qt.MiddleButton) root.refresh()
       else root.toggle()
@@ -195,12 +204,28 @@ BarWidget {
     // compact and stay put, checked.
     property bool compact: false
     readonly property bool mastered: !!item.mastered
+    // Back from practice: the keys stay hidden until "Show me".
+    readonly property bool checkIn: !!item.checkIn
+    property bool revealed: false
     property bool celebrating: false
     readonly property bool done: mastered || celebrating
     property real collapse: 1
     width: parent ? parent.width : 0
     height: (Math.max(box.height, textCol.implicitHeight) + Style.space(compact ? 8 : 14)) * collapse
     clip: collapse < 1
+
+    // Not sure yet: practice it with spaced check-ins.
+    function later() {
+      if (celebrating) return
+      if (!root.introSeen) root.showIntro = true
+      celebrating = true
+      laterAnimation.start()
+    }
+
+    function reveal() {
+      revealed = true
+      root.run(["checkin", item.id, "fail"])
+    }
 
     function check() {
       if (celebrating) return
@@ -214,18 +239,30 @@ BarWidget {
 
     SequentialAnimation {
       id: celebration
-      NumberAnimation { target: strike; property: "width"; from: 0; to: titleText.implicitWidth; duration: 320; easing.type: Easing.OutCubic }
+      NumberAnimation { target: strike; property: "width"; from: 0; to: titleText.width; duration: 320; easing.type: Easing.OutCubic }
       PauseAnimation { duration: 1100 }
       ParallelAnimation {
         NumberAnimation { target: lesson; property: "opacity"; to: 0; duration: 380; easing.type: Easing.InQuad }
         NumberAnimation { target: lesson; property: "collapse"; to: 0; duration: 420; easing.type: Easing.InOutQuad }
       }
-      ScriptAction { script: root.run(["done", lesson.item.id]) }
+      ScriptAction { script: root.run(lesson.checkIn ? ["checkin", lesson.item.id, "pass"] : ["done", lesson.item.id]) }
     }
 
     SequentialAnimation {
+      id: laterAnimation
+      ParallelAnimation {
+        NumberAnimation { target: lesson; property: "opacity"; to: 0; duration: 380; easing.type: Easing.InQuad }
+        NumberAnimation { target: slide; property: "x"; to: Style.space(60); duration: 380; easing.type: Easing.InQuad }
+        NumberAnimation { target: lesson; property: "collapse"; to: 0; duration: 420; easing.type: Easing.InOutQuad }
+      }
+      ScriptAction { script: root.run(["later", lesson.item.id]) }
+    }
+
+    transform: Translate { id: slide }
+
+    SequentialAnimation {
       id: compactCelebration
-      NumberAnimation { target: strike; property: "width"; from: 0; to: titleText.implicitWidth; duration: 320; easing.type: Easing.OutCubic }
+      NumberAnimation { target: strike; property: "width"; from: 0; to: titleText.width; duration: 320; easing.type: Easing.OutCubic }
       PauseAnimation { duration: 700 }
       ScriptAction { script: root.run(["done", lesson.item.id]) }
     }
@@ -273,13 +310,14 @@ BarWidget {
       anchors.left: box.right
       anchors.leftMargin: Style.space(12)
       anchors.right: parent.right
-      anchors.rightMargin: Style.space(8)
+      anchors.rightMargin: lesson.compact ? Style.space(8) : Style.space(78)
       anchors.verticalCenter: parent.verticalCenter
       spacing: Style.space(3)
 
       Row {
         spacing: Style.space(10)
         Rectangle {
+          id: keysChip
           width: keysText.implicitWidth + Style.space(12)
           height: keysText.implicitHeight + Style.space(4)
           radius: Style.space(4)
@@ -287,7 +325,7 @@ BarWidget {
           Text {
             id: keysText
             anchors.centerIn: parent
-            text: lesson.item.keys || ""
+            text: lesson.checkIn && !lesson.revealed ? "? ? ?" : (lesson.item.keys || "")
             color: lesson.mastered ? root.dim : root.accent
             font.family: Style.font.family
             font.pixelSize: Style.font.bodySmall
@@ -297,6 +335,8 @@ BarWidget {
         Text {
           id: titleText
           anchors.verticalCenter: parent.verticalCenter
+          width: Math.min(implicitWidth, textCol.width - keysChip.width - Style.space(10))
+          elide: Text.ElideRight
           text: lesson.item.title || ""
           color: lesson.done ? root.dim : root.fg
           font.family: Style.font.family
@@ -317,8 +357,10 @@ BarWidget {
       }
       Text {
         width: parent.width
-        visible: !lesson.compact && !lesson.mastered && (lesson.item.why || "") !== ""
-        text: lesson.item.why || ""
+        visible: !lesson.compact && !lesson.mastered && text !== ""
+        text: lesson.checkIn && !lesson.revealed
+              ? "Check-in " + (lesson.item.stage + 1) + " of " + lesson.item.steps + ". Know the keys? Tick the box."
+              : (lesson.item.why || "")
         wrapMode: Text.WordWrap
         color: root.dim
         font.family: Style.font.family
@@ -332,6 +374,39 @@ BarWidget {
       hoverEnabled: true
       cursorShape: Qt.PointingHandCursor
       onClicked: lesson.check()
+    }
+
+    // In practice, shown in its section: how far along, and the next check-in.
+    Text {
+      visible: lesson.compact && lesson.item.practicing && !lesson.celebrating
+      anchors.right: parent.right
+      anchors.rightMargin: Style.space(8)
+      anchors.verticalCenter: parent.verticalCenter
+      text: "practice " + lesson.item.stage + "/" + lesson.item.steps + (lesson.item.backIn ? " · " + lesson.item.backIn : " · now")
+      color: root.dim
+      font.family: Style.font.family
+      font.pixelSize: Style.font.caption
+    }
+
+    // "Later" on new lessons, "Show me" on check-ins.
+    Text {
+      visible: !lesson.compact && !lesson.mastered && !lesson.celebrating && !(lesson.checkIn && lesson.revealed)
+      anchors.right: parent.right
+      anchors.rightMargin: Style.space(8)
+      anchors.verticalCenter: parent.verticalCenter
+      text: lesson.checkIn ? "Show me" : "Later"
+      color: actionMouse.containsMouse ? root.accent : root.dim
+      font.family: Style.font.family
+      font.pixelSize: Style.font.bodySmall
+      font.underline: actionMouse.containsMouse
+      MouseArea {
+        id: actionMouse
+        anchors.fill: parent
+        anchors.margins: -Style.space(8)
+        hoverEnabled: true
+        cursorShape: Qt.PointingHandCursor
+        onClicked: lesson.checkIn ? lesson.reveal() : lesson.later()
+      }
     }
   }
 
@@ -449,6 +524,72 @@ BarWidget {
             }
           }
 
+          // How practice works, the first time someone presses Later.
+          Rectangle {
+            width: parent.width
+            height: visible ? intro.implicitHeight + Style.space(24) : 0
+            visible: root.showIntro
+            radius: Style.space(6)
+            color: Qt.rgba(root.accent.r, root.accent.g, root.accent.b, 0.10)
+            border.color: Qt.rgba(root.accent.r, root.accent.g, root.accent.b, 0.6)
+            border.width: Math.max(1, Style.space(1))
+            Column {
+              id: intro
+              anchors.left: parent.left
+              anchors.right: parent.right
+              anchors.top: parent.top
+              anchors.margins: Style.space(12)
+              spacing: Style.space(8)
+              Text {
+                text: "⏳  Practice mode"
+                color: root.accent
+                font.family: Style.font.family
+                font.pixelSize: Style.font.body + 1
+                font.bold: true
+              }
+              Text {
+                width: parent.width
+                wrapMode: Text.WordWrap
+                text: "Not sure yet? That's how it sticks. This shortcut steps aside and comes back as a quick check-in while you work: in 10 minutes, then 1 hour, 5 hours, 1 day, 5 days and 25 days."
+                color: root.fg
+                font.family: Style.font.family
+                font.pixelSize: Style.font.bodySmall
+              }
+              Text {
+                width: parent.width
+                wrapMode: Text.WordWrap
+                text: "This is graduated interval recall, the Pimsleur method. Each gap is about five times the last, so every check-in lands just before you'd forget. Remembering right at that edge is what moves a skill into long-term memory."
+                color: root.dim
+                font.family: Style.font.family
+                font.pixelSize: Style.font.bodySmall
+              }
+              Text {
+                width: parent.width
+                wrapMode: Text.WordWrap
+                text: "Know it at a check-in and it moves to the next gap. Forget, and it comes back sooner. Pass all six and it's locked in. Press Later as often as you like."
+                color: root.dim
+                font.family: Style.font.family
+                font.pixelSize: Style.font.bodySmall
+              }
+              Text {
+                text: "Got it"
+                color: introMouse.containsMouse ? root.fg : root.accent
+                font.family: Style.font.family
+                font.pixelSize: Style.font.body
+                font.bold: true
+                font.underline: introMouse.containsMouse
+                MouseArea {
+                  id: introMouse
+                  anchors.fill: parent
+                  anchors.margins: -Style.space(6)
+                  hoverEnabled: true
+                  cursorShape: Qt.PointingHandCursor
+                  onClicked: { root.showIntro = false; root.run(["intro-seen"]) }
+                }
+              }
+            }
+          }
+
           SectionLabel { text: "UP NEXT"; visible: root.current.length > 0 }
 
           Repeater {
@@ -543,6 +684,41 @@ BarWidget {
               Repeater {
                 model: section.open ? section.modelData.items : []
                 delegate: Lesson { compact: true }
+              }
+            }
+          }
+
+          // Practice status and a pause switch for meetings.
+          Item {
+            width: parent.width
+            height: footer.implicitHeight + Style.space(18)
+            visible: root.practicing > 0 || root.paused
+            Text {
+              id: footer
+              anchors.left: parent.left
+              anchors.leftMargin: Style.space(8)
+              anchors.verticalCenter: parent.verticalCenter
+              text: "⏳ " + root.practicing + " in practice · check-ins " + (root.paused ? "paused" : "on")
+              color: root.dim
+              font.family: Style.font.family
+              font.pixelSize: Style.font.bodySmall
+            }
+            Text {
+              anchors.right: parent.right
+              anchors.rightMargin: Style.space(8)
+              anchors.verticalCenter: parent.verticalCenter
+              text: root.paused ? "Resume" : "Pause"
+              color: pauseMouse.containsMouse ? root.accent : root.dim
+              font.family: Style.font.family
+              font.pixelSize: Style.font.bodySmall
+              font.underline: pauseMouse.containsMouse
+              MouseArea {
+                id: pauseMouse
+                anchors.fill: parent
+                anchors.margins: -Style.space(6)
+                hoverEnabled: true
+                cursorShape: Qt.PointingHandCursor
+                onClicked: root.run(["pause", root.paused ? "off" : "on"])
               }
             }
           }
