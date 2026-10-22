@@ -48,8 +48,9 @@
    "action": "Omarchy menu",
    "keys": "SUPER + SPACE",
    "title": "Launch any app",
-   "why": "Type the app's name and press Enter.",
-   "level": 1
+   "why": "Type an app name, Enter. Or click the top-left logo.",
+   "level": 1,
+   "more": "Opens the Omarchy menu, the same one you get by clicking the Omarchy logo in the top-left corner of the screen.\n\nStart typing an app's name and press Enter to launch it. The menu also holds everything else Omarchy can do: settings, themes, installing apps, and more."
   },
   {
    "id": "close",
@@ -80,9 +81,9 @@
    "action": "Switch to workspace 1",
    "keys": "SUPER + 1-9",
    "title": "Go to desktop 1 to 9",
-   "why": "Each desktop is one number away.",
+   "why": "Or click a number at the top left.",
    "level": 1,
-   "more": "Omarchy calls them workspaces; think of them as separate desktops, each with its own windows. {workspace-switch} jumps straight to one (0 is the tenth).\n\nA common setup is one desktop per kind of work, like email on 1, browser on 2 and terminals on 3. Then every app is always one key away."
+   "more": "Omarchy calls them workspaces; think of them as separate desktops, each with its own windows. {workspace-switch} jumps straight to one (0 is the tenth).\n\nThe numbers at the top left of the bar, next to the Omarchy logo, are your desktops. The one you're on is highlighted, and clicking a number takes you there.\n\nA common setup is one desktop per kind of work, like email on 1, browser on 2 and terminals on 3. Then every app is always one key away."
   },
   {
    "id": "workspace-move",
@@ -162,6 +163,25 @@
    "title": "Dismiss a notification",
    "why": "Add Shift to clear them all.",
    "level": 2
+  },
+  {
+   "id": "panels",
+   "action": "Network",
+   "keys": "SUPER CTRL + W",
+   "level": 2,
+   "title": "Wi-Fi, sound and Bluetooth panels",
+   "variants": {
+    "audio": [
+     "Audio",
+     "SUPER CTRL + A"
+    ],
+    "bt": [
+     "Bluetooth",
+     "SUPER CTRL + B"
+    ]
+   },
+   "why": "Same as the icons at the top right.",
+   "more": "These open the same panels as clicking the network, sound and Bluetooth icons on the right side of the top bar:\n\n- Network: Wi-Fi networks and wired connection.\n- Sound ({audio}): volume, and which speakers, headset or microphone to use.\n- Bluetooth ({bt}): pair and connect devices.\n\nPress the same keys again, or Escape, to close a panel."
   },
   {
    "id": "lock",
