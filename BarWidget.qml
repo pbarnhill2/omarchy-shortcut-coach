@@ -41,6 +41,10 @@ BarWidget {
   property bool introSeen: true
   // The practice explainer, shown the first time someone presses Practice.
   property bool showIntro: false
+  // Set up a practice desktop: shown on first open, and from the ⓘ by the title.
+  property bool showSetup: false
+  property bool setupSeen: true
+  property var setupKeys: ({ "desktop": "Super + 9", "terminal": "Super + Enter" })
   // Which sections are unfolded, by level.
   property var expanded: ({})
   // Done counts from the last refresh, to spot a section being finished.
@@ -64,7 +68,7 @@ BarWidget {
   readonly property int textCol: pillCol + pillWidth + Style.space(14)
 
   function open() { opened = true; refresh() }
-  function close() { opened = false; showIntro = false; detail = null; hint = ""; flush() }
+  function close() { opened = false; showIntro = false; showSetup = false; detail = null; hint = ""; flush() }
   function closeForPopoutSwitch() {
     popoutSwitchClosing = true
     close()
@@ -85,6 +89,11 @@ BarWidget {
     for (var i = 0; i < upNextModel.count; i++)
       if (upNextModel.get(i).lid === id) return true
     return false
+  }
+
+  function dismissSetup() {
+    showSetup = false
+    if (!setupSeen) run(["setup-seen"])
   }
 
   function toggleSection(level) {
@@ -231,6 +240,9 @@ BarWidget {
         root.practicing = data.practicing || 0
         root.paused = !!data.paused
         root.introSeen = !!data.introSeen
+        root.setupSeen = !!data.setupSeen
+        if (data.setup) root.setupKeys = data.setup
+        if (root.opened && !root.setupSeen) root.showSetup = true
         root.syncUpNext((data.upNext || []).filter(function(i) { return !root.pendingIds[i.id] }))
         if (root.opened) {
           if (root.complete && !wasComplete) root.celebrate("🏆  Shortcut Master!")
@@ -777,6 +789,7 @@ BarWidget {
       anchors.fill: parent
       onCloseRequested: {
         if (root.detail) root.detail = null
+        else if (root.showSetup) root.dismissSetup()
         else if (root.showIntro) root.showIntro = false
         else root.close()
       }
@@ -811,6 +824,24 @@ BarWidget {
               font.family: Style.font.family
               font.pixelSize: Style.font.body + 2
               font.bold: true
+            }
+            // Practice desktop setup, again.
+            Text {
+              x: heading.x + heading.width + Style.space(10)
+              anchors.verticalCenter: heading.verticalCenter
+              text: "󰋽"
+              color: setupMouse.containsMouse ? root.accent : root.dim
+              font.family: Style.font.family
+              font.pixelSize: Style.font.body
+              MouseArea {
+                id: setupMouse
+                anchors.fill: parent
+                anchors.margins: -Style.space(5)
+                hoverEnabled: true
+                cursorShape: Qt.PointingHandCursor
+                onClicked: { root.hint = ""; root.showSetup = true }
+                onContainsMouseChanged: root.hint = containsMouse ? "Set up a practice desktop" : (root.hint === "Set up a practice desktop" ? "" : root.hint)
+              }
             }
             Text {
               anchors.right: parent.right
@@ -1202,6 +1233,89 @@ BarWidget {
               label: "Got it"
               primary: true
               onClicked: { root.showIntro = false; root.run(["intro-seen"]) }
+            }
+          }
+        }
+      }
+
+      // First open: set up a practice desktop. Four tiled terminals on an
+      // empty desktop give every lesson something to act on, nothing to click
+      // instead of the shortcut, and nothing real to rearrange.
+      Rectangle {
+        id: setupLayer
+        z: 32
+        anchors.fill: parent
+        visible: opacity > 0
+        opacity: root.showSetup ? 1 : 0
+        Behavior on opacity { NumberAnimation { duration: 200 } }
+        color: Qt.rgba(Commons.Color.popups.background.r, Commons.Color.popups.background.g,
+                       Commons.Color.popups.background.b, 0.88)
+        MouseArea { anchors.fill: parent; enabled: setupLayer.visible }
+
+        Rectangle {
+          anchors.centerIn: parent
+          width: parent.width - Style.space(40)
+          height: setupText.implicitHeight + Style.space(40)
+          radius: Style.space(10)
+          color: Commons.Color.popups.background
+          border.color: root.accent
+          border.width: Math.max(1, Style.space(2))
+          Column {
+            id: setupText
+            x: Style.space(20)
+            y: Style.space(20)
+            width: parent.width - Style.space(40)
+            spacing: Style.space(12)
+            Text {
+              text: "Set up a practice desktop"
+              color: root.accent
+              font.family: Style.font.family
+              font.pixelSize: Style.font.body + 3
+              font.bold: true
+            }
+            Repeater {
+              model: [
+                { n: "1", keys: root.setupKeys.desktop, text: "Go to an empty desktop." },
+                { n: "2", keys: root.setupKeys.terminal, text: "Press it 4 times: four tiled terminals." }
+              ]
+              delegate: Row {
+                id: step
+                required property var modelData
+                spacing: Style.space(10)
+                Text {
+                  width: Style.space(14)
+                  anchors.verticalCenter: parent.verticalCenter
+                  text: modelData.n
+                  color: root.dim
+                  font.family: Style.font.family
+                  font.pixelSize: Style.font.body
+                  font.bold: true
+                }
+                Keys { id: stepKeys; keys: modelData.keys.toUpperCase(); anchors.verticalCenter: parent.verticalCenter }
+                Text {
+                  anchors.verticalCenter: parent.verticalCenter
+                  width: setupText.width - Style.space(14) - stepKeys.width - Style.space(20)
+                  wrapMode: Text.WordWrap
+                  text: modelData.text
+                  color: root.fg
+                  font.family: Style.font.family
+                  font.pixelSize: Style.font.bodySmall
+                }
+              }
+            }
+            Text {
+              width: parent.width
+              wrapMode: Text.WordWrap
+              text: "Try every lesson there. Four windows give each shortcut something to act on, terminals have nothing to click instead of the keys, and nothing on your real desktops gets moved."
+              color: Qt.rgba(root.fg.r, root.fg.g, root.fg.b, 0.82)
+              font.family: Style.font.family
+              font.pixelSize: Style.font.bodySmall
+              lineHeight: 1.3
+            }
+            Pill {
+              label: "I'm set"
+              primary: true
+              onClicked: root.dismissSetup()
             }
           }
         }

@@ -33,6 +33,12 @@ omarchy plugin add https://github.com/pbarnhill2/omarchy-shortcut-coach --enable
 
 The cap icon (󰑴) appears on the right of the bar. Click it to start.
 
+The first time, it suggests a practice desktop: go to an empty desktop
+(`Super + 9`) and press `Super + Enter` four times. Four tiled terminals give
+every lesson something to act on, have nothing to click instead of the keys,
+and keep your real desktops untouched. The ⓘ next to the title shows this
+again.
+
 ## How it works
 
 **Up next** shows six shortcuts, Essentials first. Each row has two choices:

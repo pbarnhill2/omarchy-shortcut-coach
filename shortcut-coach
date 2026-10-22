@@ -13,6 +13,7 @@
   shortcut-coach fav ID / unfav ID       star or unstar a shortcut (your favorites list)
   shortcut-coach pause on|off            pause or resume check-ins
   shortcut-coach intro-seen              don't explain practice again
+  shortcut-coach setup-seen              don't show the practice-desktop card again
   shortcut-coach remove ID               delete one you added
   shortcut-coach batch N                 how many to show in up next (default 6)
   shortcut-coach done-section N          check off a whole section (1-5; 0 = added for you)
@@ -72,6 +73,7 @@ def load_state():
     s.setdefault("introSeen", False)
     s.setdefault("today", {"date": "", "count": 0})
     s.setdefault("favorites", [])
+    s.setdefault("setupSeen", False)
     s.pop("snoozed", None)
     return s
 
@@ -177,6 +179,15 @@ def lessons(s, cur):
     return items
 
 
+def setup_keys():
+    """Keys for the practice-desktop card, as this machine has them."""
+    live = live_bindings() or {}
+    return {
+        "desktop": prose_keys(live.get("Switch to workspace 9", "SUPER + 9")),
+        "terminal": prose_keys(live.get("Terminal", "SUPER + RETURN")).replace("Return", "Enter"),
+    }
+
+
 def progress(s):
     """Lessons grouped into sections. Nothing is locked: "up next" walks the
     sections in order, check-ins that are due come first, and shortcuts in
@@ -214,6 +225,8 @@ def progress(s):
         "checkIns": sum(1 for i in items if i["checkIn"]),
         "paused": s["paused"],
         "introSeen": s["introSeen"],
+        "setupSeen": s["setupSeen"],
+        "setup": setup_keys(),
         "steps": STEPS,
     }
 
@@ -363,6 +376,11 @@ def main(argv):
         save_state(s)
         return 0
 
+    if cmd == "setup-seen":
+        s["setupSeen"] = True
+        save_state(s)
+        return 0
+
     if cmd == "remove" and args:
         s["custom"] = [c for c in s["custom"] if c["id"] != args[0]]
         s["mastered"].pop(args[0], None)
@@ -398,6 +416,7 @@ def main(argv):
         s["mastered"] = {}
         s["practice"] = {}
         s["introSeen"] = False
+        s["setupSeen"] = False
         save_state(s)
         return 0
 
