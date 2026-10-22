@@ -276,19 +276,32 @@ Item {
           spacing: Style.space(6)
           opacity: root.revealed ? 1 : 0
           Behavior on opacity { NumberAnimation { duration: 160 } }
-          Rectangle {
-            width: keys.implicitWidth + Style.space(16)
-            height: keys.implicitHeight + Style.space(8)
-            radius: Style.space(5)
-            color: Qt.rgba(root.accent.r, root.accent.g, root.accent.b, 0.18)
-            Text {
-              id: keys
-              anchors.centerIn: parent
-              text: root.item ? root.item.keys : ""
-              color: root.accent
-              font.family: Style.font.family
-              font.pixelSize: Style.font.body + 2
-              font.bold: true
+          // The keys as keycaps, as in the panel.
+          Row {
+            spacing: Style.space(5)
+            Repeater {
+              model: {
+                var text = root.item ? String(root.item.keys || "") : ""
+                if (text.indexOf("›") !== -1 || text.indexOf(" + ") === -1) return text ? [text] : []
+                var plus = text.indexOf(" + ")
+                return text.slice(0, plus).split(/\s+/).filter(function(m) { return m !== "" }).concat([text.slice(plus + 3)])
+              }
+              delegate: Rectangle {
+                required property string modelData
+                width: cap.implicitWidth + Style.space(14)
+                height: cap.implicitHeight + Style.space(8)
+                radius: Style.space(5)
+                color: Qt.rgba(root.accent.r, root.accent.g, root.accent.b, 0.18)
+                Text {
+                  id: cap
+                  anchors.centerIn: parent
+                  text: modelData
+                  color: root.accent
+                  font.family: Style.font.family
+                  font.pixelSize: Style.font.body + 2
+                  font.bold: true
+                }
+              }
             }
           }
           Text {

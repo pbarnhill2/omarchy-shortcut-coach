@@ -455,42 +455,65 @@ BarWidget {
     }
   }
 
-  // The keys, as a chip.
-  component Keys: Rectangle {
-    id: keysChip
+  // The keys, as keycaps: [SUPER] [SHIFT] [1-9]. Each key held together is its
+  // own cap; a menu path (MENU › STYLE › FONT) stays one cap.
+  function keyCaps(keys) {
+    var text = String(keys || "").trim()
+    if (text === "") return []
+    if (text.indexOf("›") !== -1) return [text]
+    var plus = text.indexOf(" + ")
+    if (plus === -1) return [text]
+    var mods = text.slice(0, plus).split(/\s+/).filter(function(m) { return m !== "" })
+    return mods.concat([text.slice(plus + 3)])
+  }
+
+  component Keys: Row {
+    id: keysRow
     property string keys: ""
     property bool muted: false
     property bool small: false
-    width: keysLabel.implicitWidth + Style.space(small ? 10 : 12)
-    height: Style.space(small ? 18 : 20)
-    radius: Style.space(4)
-    color: Qt.rgba(root.accent.r, root.accent.g, root.accent.b, muted ? 0.08 : 0.16)
-    Text {
-      id: keysLabel
-      anchors.centerIn: parent
-      text: keysChip.keys
-      color: keysChip.muted ? root.dim : root.accent
-      font.family: Style.font.family
-      font.pixelSize: keysChip.small ? Style.font.caption : Style.font.bodySmall
-      font.bold: true
+    spacing: Style.space(small ? 3 : 4)
+    Repeater {
+      model: root.keyCaps(keysRow.keys)
+      delegate: Rectangle {
+        required property string modelData
+        width: capLabel.implicitWidth + Style.space(keysRow.small ? 8 : 10)
+        height: Style.space(keysRow.small ? 18 : 20)
+        radius: Style.space(4)
+        color: Qt.rgba(root.accent.r, root.accent.g, root.accent.b, keysRow.muted ? 0.08 : 0.16)
+        // A slightly firmer bottom edge reads as a key.
+        Rectangle {
+          anchors.left: parent.left
+          anchors.right: parent.right
+          anchors.bottom: parent.bottom
+          anchors.leftMargin: parent.radius
+          anchors.rightMargin: parent.radius
+          height: Math.max(1, Style.space(1))
+          color: Qt.rgba(root.accent.r, root.accent.g, root.accent.b, keysRow.muted ? 0.12 : 0.35)
+        }
+        Text {
+          id: capLabel
+          anchors.centerIn: parent
+          text: modelData
+          color: keysRow.muted ? root.dim : root.accent
+          font.family: Style.font.family
+          font.pixelSize: keysRow.small ? Style.font.caption : Style.font.bodySmall
+          font.bold: true
+        }
+      }
     }
   }
 
-  // Variants taught with a lesson, nested under its keys:
-  // └ SUPER SHIFT ALT + 1-9  …and stay where you are · …
+  // Variants taught with a lesson, on the line under its keys, aligned with
+  // them and joined by a bracket:
+  // ⎡ [SUPER] [SHIFT] [1-9]        Send a window to a desktop
+  // ⎣ [SUPER] [SHIFT] [ALT] [1-9]  …and stay where you are
   component Nested: Row {
     id: nested
     property var variants: []
     property bool muted: false
     spacing: Style.space(6)
     clip: true
-    Text {
-      anchors.verticalCenter: parent.verticalCenter
-      text: "└"
-      color: root.dim
-      font.family: Style.font.family
-      font.pixelSize: Style.font.bodySmall
-    }
     Repeater {
       model: nested.variants
       delegate: Row {
@@ -520,6 +543,21 @@ BarWidget {
         }
       }
     }
+  }
+
+  // A thin bracket joining two lines of keys into one lesson.
+  component Bracket: Item {
+    id: bracket
+    property real fromY: 0
+    property real toY: 0
+    y: fromY
+    width: Style.space(5)
+    height: toY - fromY
+    readonly property real stroke: Math.max(1, Style.space(1.5))
+    readonly property color ink: Qt.rgba(root.accent.r, root.accent.g, root.accent.b, 0.55)
+    Rectangle { x: 0; y: 0; width: bracket.stroke; height: parent.height; color: bracket.ink }
+    Rectangle { x: 0; y: 0; width: parent.width; height: bracket.stroke; color: bracket.ink }
+    Rectangle { x: 0; y: parent.height - height; width: parent.width; height: bracket.stroke; color: bracket.ink }
   }
 
   // In place of the keys on a check-in: which check-in this is.
@@ -810,12 +848,19 @@ BarWidget {
     // the ⓘ. On a check-in they stay hidden until Show me.
     readonly property bool showNested: (item.variants || []).length > 0 && !trying && !(checkIn && !revealed)
     Nested {
+      id: rowNested
       visible: row.showNested
       x: root.textCol
       y: line1.y + line1.height + Style.space(5)
       width: line1.width
       height: Style.space(18)
       variants: row.item.variants || []
+    }
+    Bracket {
+      visible: row.showNested
+      x: root.textCol - Style.space(9)
+      fromY: line1.y + Style.space(4)
+      toY: rowNested.y + rowNested.height - Style.space(4)
     }
     Text {
       id: tip
@@ -903,6 +948,7 @@ BarWidget {
     }
     // Variants, nested under the keys.
     Nested {
+      id: snested
       visible: srow.hasNested
       x: skeys.x
       y: Style.space(32)
@@ -910,6 +956,12 @@ BarWidget {
       height: Style.space(18)
       variants: srow.item.variants || []
       muted: srow.mastered || srow.ticking
+    }
+    Bracket {
+      visible: srow.hasNested
+      x: skeys.x - Style.space(8)
+      fromY: skeys.y + Style.space(3)
+      toY: snested.y + snested.height - Style.space(3)
     }
     Info {
       id: sinfo
