@@ -153,6 +153,13 @@ def lessons(s, cur):
                 continue  # not bound on this machine
             if not FAMILY.search(c["keys"]):
                 c["keys"] = live[c["action"]]
+        # Variants taught in the same lesson ("add Alt to stay put") name
+        # their keys as {name} in the tip and the explanation.
+        for name, (action, fallback) in c.pop("variants", {}).items():
+            keys = fallback if live is None or action not in live or FAMILY.search(fallback) else live[action]
+            for field in ("why", "more"):
+                if c.get(field):
+                    c[field] = c[field].replace("{" + name + "}", prose_keys(keys))
         items.append(dict(c, custom=False, section=names.get(str(c["level"]), "")))
     # Longer explanations name other shortcuts as {lesson-id}; fill in the
     # keys this machine actually uses.

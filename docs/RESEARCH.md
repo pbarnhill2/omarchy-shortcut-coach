@@ -31,6 +31,17 @@ one and keeps attention on a few items at once. This is a design judgment
 informed by common practice in learning apps, not a number from a specific
 study.
 
+### Related shortcuts are taught together
+
+Omarchy's shortcuts follow a pattern: Super + a number goes to a desktop,
+adding Shift takes the window along, adding Alt as well sends it without
+you. The same goes for arrows: Super + arrow moves focus, adding Shift
+swaps the window. Variants like these are one lesson, with the variant in the
+tip, and related contrasts (float and pop-out, the Print-key captures) sit
+next to each other. Learning a rule is easier than memorizing its instances
+as unrelated facts, the idea behind chunking. Grouping them this way is our
+design judgment rather than a tested result.
+
 ### 2. Recall beats re-reading
 
 Trying to remember something strengthens memory more than reading it again,

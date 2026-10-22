@@ -67,6 +67,14 @@
    "level": 1
   },
   {
+   "id": "swap",
+   "action": "Swap window to the left",
+   "keys": "SUPER SHIFT + ARROWS",
+   "title": "Swap a window with its neighbor",
+   "why": "Rearrange tiles without the mouse.",
+   "level": 1
+  },
+  {
    "id": "workspace-switch",
    "action": "Switch to workspace 1",
    "keys": "SUPER + 1-9",
@@ -80,18 +88,30 @@
    "action": "Move window to workspace 1",
    "keys": "SUPER SHIFT + 1-9",
    "title": "Send a window to another desktop",
-   "why": "You go along with it.",
+   "why": "You go along. Add Alt and you stay put.",
    "level": 1,
-   "more": "Sends the window you're in to another desktop and takes you along with it.\n\nTo send it away and stay where you are, use {move-silent}."
+   "more": "The pattern: Super + a number goes to a desktop. Add Shift and the window you're in goes there too, and you go with it. Add Alt as well ({stay}) and the window goes on without you.\n\nThe Alt version is handy for clearing your desk: push a finished terminal to desktop 9 to deal with later.",
+   "variants": {
+    "stay": [
+     "Move window silently to workspace 1",
+     "SUPER SHIFT ALT + 1-9"
+    ]
+   }
   },
   {
    "id": "fullscreen",
    "action": "Full screen",
    "keys": "SUPER + F",
-   "title": "True full screen",
-   "why": "Covers everything, bar included.",
+   "title": "Full screen, or full width",
+   "why": "{wide}: full width, bar kept.",
    "level": 1,
-   "more": "Covers the whole screen, bar included. Press {fullscreen} again to leave.\n\nThere's also tiled full screen, Super + Ctrl + F: the app acts as if it were full screen (a video player hides its controls, for example) while the window stays in its tile."
+   "more": "Super + F covers the whole screen, bar included. Press it again to leave.\n\n{wide} is full width instead: the window fills the desktop but keeps the bar and the gaps, and the other windows wait underneath. Press it again to bring them back.\n\nThere's also tiled full screen, Super + Ctrl + F: the app acts as if it were full screen (a video player hides its controls, for example) while the window stays in its tile.",
+   "variants": {
+    "wide": [
+     "Full width",
+     "SUPER ALT + F"
+    ]
+   }
   },
   {
    "id": "screenshot",
@@ -127,32 +147,6 @@
    "level": 2
   },
   {
-   "id": "float",
-   "action": "Toggle window floating/tiling",
-   "keys": "SUPER + T",
-   "title": "Float a window",
-   "why": "Lifts it out of the tiles, on this desktop.",
-   "level": 2,
-   "more": "Normally Omarchy tiles windows: they share the desktop automatically, with no overlap. A floating window sits on top instead, at its own size and position.\n\nDrag it with {mouse-move} and resize it with {mouse-resize}. It stays on its own desktop. Press {float} again to tile it.\n\nTo float a window and keep it with you on every desktop, use pop-out ({pop-out})."
-  },
-  {
-   "id": "swap",
-   "action": "Swap window to the left",
-   "keys": "SUPER SHIFT + ARROWS",
-   "title": "Swap a window with its neighbor",
-   "why": "Rearrange tiles without the mouse.",
-   "level": 2
-  },
-  {
-   "id": "full-width",
-   "action": "Full width",
-   "keys": "SUPER ALT + F",
-   "title": "Make a window full width",
-   "why": "The whole desktop, bar kept. Again to undo.",
-   "level": 2,
-   "more": "The window fills the desktop but keeps the bar and the gaps. Other windows on the desktop are still there underneath; press {full-width} again to bring them back.\n\nFull screen ({fullscreen}) also covers the bar."
-  },
-  {
    "id": "emojis",
    "action": "Emojis",
    "keys": "SUPER CTRL + E",
@@ -177,22 +171,13 @@
    "level": 2
   },
   {
-   "id": "scratchpad",
-   "action": "Toggle scratchpad",
-   "keys": "SUPER + S",
-   "title": "Show or hide the scratchpad",
-   "why": "A hidden drawer over any desktop.",
+   "id": "float",
+   "action": "Toggle window floating/tiling",
+   "keys": "SUPER + T",
+   "title": "Float a window",
+   "why": "Lifts it out of the tiles, on this desktop.",
    "level": 3,
-   "more": "Think of the scratchpad as a drawer that slides out over whatever desktop you're on. Windows in it keep running while hidden.\n\n1. Put a window in with {scratchpad-move}. It disappears from its desktop.\n2. Press {scratchpad} to pull the drawer out over the desktop you're on. Press it again to tuck it away.\n3. To take a window out for good, open the drawer, click the window, and press {workspace-move}.\n\nGood for things you check often but don't want taking up a tile: a chat app, music, a notes terminal."
-  },
-  {
-   "id": "scratchpad-move",
-   "action": "Move window to scratchpad",
-   "keys": "SUPER ALT + S",
-   "title": "Put a window in the scratchpad",
-   "why": "Take it out with Super + Shift + number.",
-   "level": 3,
-   "more": "Puts the window you're in into the scratchpad, a hidden drawer you pull out over any desktop with {scratchpad}.\n\nTo take it out again, open the drawer, click the window, and press {workspace-move}."
+   "more": "Normally Omarchy tiles windows: they share the desktop automatically, with no overlap. A floating window sits on top instead, at its own size and position.\n\nDrag it with {mouse-move} and resize it with {mouse-resize}. It stays on its own desktop. Press {float} again to tile it.\n\nTo float a window and keep it with you on every desktop, use pop-out ({pop-out})."
   },
   {
    "id": "pop-out",
@@ -204,31 +189,38 @@
    "more": "Pop-out floats the window, centers it at a comfortable size, and pins it, so it stays visible when you switch desktops. Press {pop-out} again to put it back in the tiles.\n\nFloat ({float}) only floats it, on its own desktop.\n\nPop-out suits a video call or a video you want to keep watching while you move between desktops."
   },
   {
+   "id": "scratchpad",
+   "action": "Toggle scratchpad",
+   "keys": "SUPER + S",
+   "title": "The scratchpad: a hidden drawer",
+   "why": "Show or hide it. {put} puts a window in.",
+   "level": 3,
+   "more": "Think of the scratchpad as a drawer that slides out over whatever desktop you're on. Windows in it keep running while hidden.\n\n1. Put a window in with {put}. It disappears from its desktop.\n2. Press {scratchpad} to pull the drawer out over the desktop you're on. Press it again to tuck it away.\n3. To take a window out for good, open the drawer, click the window, and press {workspace-move}.\n\nGood for things you check often but don't want taking up a tile: a chat app, music, a notes terminal.",
+   "variants": {
+    "put": [
+     "Move window to scratchpad",
+     "SUPER ALT + S"
+    ]
+   }
+  },
+  {
    "id": "group",
    "action": "Toggle window grouping",
    "keys": "SUPER + G",
    "title": "Stack windows as tabs",
-   "why": "Windows share one tile, like browser tabs.",
+   "why": "Flip tabs with {next}.",
    "level": 3,
-   "more": "A group stacks several windows into one tile, with tabs on top, like a browser.\n\n1. Press {group} on a window to make its tile a group.\n2. Move a neighboring window in with Super + Alt + the arrow pointing toward the group.\n3. Switch tabs with {group-next}, or click a tab. {group-out} takes a window back out.\n\nUse it when you want several windows on one desktop but only need to see one at a time."
-  },
-  {
-   "id": "group-next",
-   "action": "Next window in group",
-   "keys": "SUPER ALT + TAB",
-   "title": "Next tab in a group",
-   "why": "Flip through the windows in a group.",
-   "level": 3,
-   "more": "Moves to the next window in a group, the way Ctrl + Tab moves between browser tabs. Add Shift to go back.\n\nA group is several windows stacked in one tile with tabs on top; {group} makes one."
-  },
-  {
-   "id": "group-out",
-   "action": "Move active window out of group",
-   "keys": "SUPER ALT + G",
-   "title": "Pull a window out of a group",
-   "why": "It goes back to being its own tile.",
-   "level": 3,
-   "more": "Takes the window you're in out of its group so it becomes its own tile again. The rest of the group stays together."
+   "more": "A group stacks several windows into one tile, with tabs on top, like a browser.\n\n1. Press {group} on a window to make its tile a group.\n2. Move a neighboring window in with Super + Alt + the arrow pointing toward the group.\n3. Switch tabs with {next}, or click a tab. {out} takes a window back out.\n\nUse it when you want several windows on one desktop but only need to see one at a time.",
+   "variants": {
+    "next": [
+     "Next window in group",
+     "SUPER ALT + TAB"
+    ],
+    "out": [
+     "Move active window out of group",
+     "SUPER ALT + G"
+    ]
+   }
   },
   {
    "id": "split",
@@ -247,15 +239,6 @@
    "why": "Shift: height. Alt: a little. Ctrl: a lot.",
    "level": 3,
    "more": "Super + Minus and Super + Equal change the width of the window you're in. Add Shift to change the height, Alt to move a little, and Ctrl to move a lot.\n\nWith the mouse, use {mouse-resize}."
-  },
-  {
-   "id": "move-silent",
-   "action": "Move window silently to workspace 1",
-   "keys": "SUPER SHIFT ALT + 1-9",
-   "title": "Send a window away and stay put",
-   "why": "Like Super + Shift + number, but you stay.",
-   "level": 3,
-   "more": "Like {workspace-move}, but you stay on the desktop you're on and the window goes on without you.\n\nHandy for clearing your desk: push a finished terminal to desktop 9 to deal with later."
   },
   {
    "id": "ocr",
