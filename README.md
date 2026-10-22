@@ -88,7 +88,8 @@ After you try a shortcut, it comes back as a small card under the bar:
   without moving a step.
 
 Check-ins are built not to get in your way. They wait for a pause in your
-typing, come at least 15 minutes apart and at most 8 a day, never take
+typing, wait 10 minutes after you log in, unlock or come back, come at least
+15 minutes apart and at most 8 a day, never take
 keyboard focus, and skip fullscreen apps and time away from the computer.
 **Pause** at the bottom of the panel stops them, for meetings.
 

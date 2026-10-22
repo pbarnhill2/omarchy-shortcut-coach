@@ -11,7 +11,8 @@ import qs.Commons as Commons
 // me". It waits for a pause in your typing (interruptions at a natural break
 // cost the least), never takes keyboard focus, skips fullscreen apps and
 // time away, and leaves at least 15 minutes between check-ins; the script
-// caps them at 8 a day. Ignoring it asks again in 15 minutes.
+// caps them at 8 a day. After login, unlock or time away it waits 10 minutes
+// of work before the first one. Ignoring it asks again in 15 minutes.
 Item {
   id: root
 
@@ -21,6 +22,9 @@ Item {
 
   readonly property string cli: String(Qt.resolvedUrl("shortcut-coach")).replace("file://", "")
   readonly property int gapMs: 15 * 60 * 1000
+  // After logging in, unlocking or coming back from away, settle in first.
+  readonly property int settleMs: 10 * 60 * 1000
+  property real activeSince: Date.now()
   readonly property int lingerMs: 45 * 1000
 
   property var item: null
@@ -40,6 +44,7 @@ Item {
   function check() {
     if (showing || idle || !paused || dueProc.running) return
     if (Date.now() - lastShown < gapMs) return
+    if (Date.now() - activeSince < settleMs) return
     dueProc.running = true
   }
 
@@ -69,6 +74,8 @@ Item {
     id: idleMonitor
     timeout: 120
     respectInhibitors: false
+    // Back from away (or from the lock screen): start the settling-in clock.
+    onIsIdleChanged: if (!isIdle) root.activeSince = Date.now()
   }
 
   IdleMonitor {
