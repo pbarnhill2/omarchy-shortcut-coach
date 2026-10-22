@@ -73,17 +73,19 @@ shortcuts you don't have are skipped.
 ### Practice and check-ins
 
 After you try a shortcut, it comes back as a small card under the bar:
-*"Do you remember how to… float a window?"*
+flash card under the bar: *"What's the shortcut for… float a window?"* Think of
+it (or press it), then **Show answer**: the card flips to the keys and you
+grade yourself.
 
 | Check-in | 1 | 2 | 3 | 4 | 5 | 6 |
 |---|---|---|---|---|---|---|
 | Comes back after | 10 min | 1 hour | 1 day | 4 days | 2 weeks | 6 weeks |
 
-- **Remembered** moves it to the next, longer gap. Pass the sixth and it's
-  locked in (marked as known).
-- **Show me** reveals the keys so you can try them, then asks again in 10
-  minutes and steps it back one gap (two from the 2-week check on). Three
-  misses mark it *tricky*.
+- **Got it** moves it to the next, longer gap; the button shows when. Pass
+  the sixth and it's locked in (marked as known).
+- **Missed it** brings it back in 10 minutes and steps it back one gap (two
+  from the 2-week check on), not back to the start. Three misses mark it
+  *tricky*.
 - **Ignored** cards fade after 45 seconds and come back in 15 minutes,
   without moving a step.
 

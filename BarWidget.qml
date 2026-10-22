@@ -794,7 +794,9 @@ BarWidget {
       checked: row.celebrating
       pop: row.celebrating
       enabled: !row.busy
-      hintText: row.checkIn ? "Remembered it: the next check-in waits longer"
+      // Flash card: grade only after seeing the answer.
+      visible: !row.checkIn || row.revealed
+      hintText: row.checkIn ? "Got it: back in " + (row.item.passIn || "a while")
                             : "Know it already: mark it as known"
       onClicked: row.check()
     }
@@ -804,12 +806,12 @@ BarWidget {
       anchors.verticalCenter: parent.verticalCenter
       opacity: row.busy ? 0 : 1
       enabled: !row.busy
-      primary: row.checkIn && row.revealed
-      label: row.checkIn && row.revealed ? "Got it"
-           : row.checkIn ? "󰈈 Show me"
+      primary: false
+      label: row.checkIn && row.revealed ? "Missed it"
+           : row.checkIn ? "󰈈 Show"
            : "󰥔 Practice"
-      hintText: row.checkIn && row.revealed ? "It comes back in 10 minutes"
-              : row.checkIn ? "Forgot? See the keys and try them"
+      hintText: row.checkIn && row.revealed ? "Missed it: back in " + (row.item.missIn || "10m")
+              : row.checkIn ? "Think of the keys, then flip the card"
               : "Not sure yet: try it now, then it moves to In practice"
       onClicked: row.pillClicked()
     }
@@ -881,7 +883,7 @@ BarWidget {
 
     // Line 2: one line, always, so the row never changes height. A lesson
     // with variants shows them here, nested under its keys; its tip moves to
-    // the ⓘ. On a check-in they stay hidden until Show me.
+    // the ⓘ. On a check-in they stay hidden until the card is flipped (Show).
     readonly property bool showNested: (item.variants || []).length > 0 && !trying && !(checkIn && !revealed)
     Nested {
       id: rowNested
@@ -910,8 +912,8 @@ BarWidget {
       elide: Text.ElideRight
       maximumLineCount: 1
       text: row.trying ? "Try it now: press " + (row.item.keys || "") + ". Moving to In practice…"
-          : row.checkIn && row.revealed ? "Try it now. " + (row.item.why || "")
-          : row.checkIn ? "Remember the keys? Tick it, or Show me."
+          : row.checkIn && row.revealed ? "Got it? Tick the box. If not, Missed it."
+          : row.checkIn ? "What's the shortcut? Think, then Show."
           : (row.item.why || "")
       color: row.trying ? root.accent : root.dim
       font.family: Style.font.family

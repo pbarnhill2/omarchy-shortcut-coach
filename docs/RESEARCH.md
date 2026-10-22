@@ -103,13 +103,19 @@ instead of a few hours later.
 
 ### 6. Mistakes
 
-When you press **Show me**, you see the answer and try it, then the
+A check-in is a flash card: the question first, then **Show answer**, then you
+grade yourself, the show-then-grade flow of Anki and similar apps. Recalling
+before seeing the answer is the retrieval practice; grading after it keeps
+the grade honest. When you press **Missed it**, the
 shortcut comes back in 10 minutes and steps back one gap (two from the
 2-week check on, since a miss that late suggests the memory is weaker than
 the schedule assumed). Pimsleur's rule was simply to show the right answer
 whether or not you got it; the step-back rule follows modern
 spaced-repetition software such as Anki, which sends a forgotten card back
-through short relearning steps. After three misses a shortcut is marked
+through short relearning steps. It steps back rather than restarting
+because relearning something you once knew is much faster than learning it
+new (the savings effect, going back to Ebbinghaus), which modern schedulers
+such as FSRS also build in. After three misses a shortcut is marked
 *tricky*. These specific numbers are our judgment, not tested values.
 
 ### 7. Interruptions

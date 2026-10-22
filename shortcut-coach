@@ -31,7 +31,7 @@ recall (1967) and later work on spacing (Karpicke & Roediger 2007, Cepeda et
 al. 2008). A shortcut you're unsure of: try it once right away, then quick
 check-ins after 10 minutes, 1 hour, 1 day (a night's sleep in between), 4
 days, 2 weeks and 6 weeks. Each gap is about 3-4x the last. Pass the last
-one and it's locked in. A miss ("Show me") retries in 10 minutes and steps
+one and it's locked in. A miss ("Missed it") retries in 10 minutes and steps
 back (two steps from 2 weeks on); three misses mark it tricky. Check-ins
 come at least 15 minutes apart, at most 8 a day.
 
@@ -50,7 +50,7 @@ FAMILY = re.compile(r"ARROWS|1-9|/|DRAG|SCROLL")
 # near the best gap for each retention target (Cepeda et al. 2008); the 1d
 # step puts a night's sleep before the third check (Walker et al. 2002).
 STEPS = [10, 60, 1440, 5760, 20160, 60480]
-RETRY_MINUTES = 10   # after "show me"
+RETRY_MINUTES = 10   # after "Missed it"
 SKIP_MINUTES = 15    # check-in ignored or dismissed: no step change
 BIG_STEP_BACK_FROM = 4  # a miss at 2 weeks or later steps back two
 TRICKY_LAPSES = 3
@@ -139,7 +139,7 @@ def humanize(delta):
     minutes = delta.total_seconds() / 60
     if minutes < 60:
         return f"{max(1, round(minutes))}m"
-    if minutes < 36 * 60:
+    if minutes < 24 * 60:
         return f"{round(minutes / 60)}h"
     return f"{round(minutes / 1440)}d"
 
@@ -193,6 +193,10 @@ def lessons(s, cur):
         item["steps"] = len(STEPS)
         item["checkIn"] = bool(p) and due <= t
         item["backIn"] = humanize(due - t) if p and due > t else ""
+        # For the grade buttons on a check-in: when it comes back either way.
+        nxt = item["stage"] + 1
+        item["passIn"] = humanize(datetime.timedelta(minutes=STEPS[nxt])) if nxt < len(STEPS) else "locked in"
+        item["missIn"] = humanize(datetime.timedelta(minutes=RETRY_MINUTES))
     return items
 
 
