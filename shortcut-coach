@@ -7,8 +7,10 @@
   shortcut-coach undo ID                 put a mastered one back
   shortcut-coach remove ID               delete one you added
   shortcut-coach batch N                 how many to learn at once (default 6)
+  shortcut-coach reset                   start over from Level 1 (keeps lessons you added)
 
-Progress lives in ~/.local/state/omarchy-shortcut-coach.json. The built-in
+Lessons are grouped into levels; the next level opens once every lesson in
+the current one is checked off. Progress lives in ~/.local/state/omarchy-shortcut-coach.json. The built-in
 lessons come from curriculum.json next to this script; each lesson shows the
 keys from your live Hyprland bindings, so rebound shortcuts show your keys.
 """
@@ -56,20 +58,49 @@ def live_bindings():
     return found or None
 
 
-def lessons(s):
-    live = live_bindings()
-    items = [dict(c, custom=True) for c in s["custom"]]
+def curriculum():
     with open(os.path.join(HERE, "curriculum.json")) as f:
-        for c in json.load(f):
-            if live is not None:
-                if c["action"] not in live:
-                    continue  # not bound on this machine
-                if not FAMILY.search(c["keys"]):
-                    c["keys"] = live[c["action"]]
-            items.append(dict(c, custom=False))
+        return json.load(f)
+
+
+def lessons(s, cur):
+    live = live_bindings()
+    items = [dict(c, custom=True, level=0) for c in s["custom"]]
+    for c in cur["lessons"]:
+        c = dict(c)
+        if live is not None:
+            if c["action"] not in live:
+                continue  # not bound on this machine
+            if not FAMILY.search(c["keys"]):
+                c["keys"] = live[c["action"]]
+        items.append(dict(c, custom=False))
     for item in items:
         item["mastered"] = s["mastered"].get(item["id"])
     return items
+
+
+def progress(s):
+    """The current level is the lowest one with lessons left to master."""
+    cur = curriculum()
+    items = lessons(s, cur)
+    names = cur["levels"]
+    levels = sorted({i["level"] for i in items if i["level"] > 0})
+    current = next((l for l in levels if any(not i["mastered"] for i in items if i["level"] == l)), None)
+    in_level = [i for i in items if i["level"] == current] if current else []
+    learning = [i for i in items if i["custom"] and not i["mastered"]] + \
+               [i for i in in_level if not i["mastered"]]
+    return {
+        "batch": s["batch"],
+        "level": current or (levels[-1] if levels else 0),
+        "levels": len(levels),
+        "levelName": names.get(str(current), "Mastered") if current else "Shortcut Master",
+        "levelDone": sum(1 for i in in_level if i["mastered"]),
+        "levelTotal": len(in_level),
+        "complete": current is None,
+        "learning": learning,
+        "mastered": [i for i in items if i["mastered"]],
+        "total": len(items),
+    }
 
 
 def slug(text):
@@ -84,20 +115,27 @@ def main(argv):
     s = load_state()
 
     if cmd == "list":
-        items = lessons(s)
-        learning = [i for i in items if not i["mastered"]]
+        p = progress(s)
         if "--json" in args:
-            print(json.dumps({"batch": s["batch"], "learning": learning,
-                              "mastered": [i for i in items if i["mastered"]]}))
+            print(json.dumps(p))
             return 0
-        shown = learning if "--all" in args else learning[: s["batch"]]
+        if p["complete"]:
+            print("All levels complete. Shortcut Master!")
+        else:
+            print(f"Level {p['level']} of {p['levels']}: {p['levelName']} "
+                  f"({p['levelDone']}/{p['levelTotal']})\n")
+        shown = p["learning"] if "--all" in args else p["learning"][: p["batch"]]
         for i in shown:
             print(f"[ ] {i['keys']:<26} {i['title']}  ({i['id']})")
         if "--all" in args:
-            for i in items:
-                if i["mastered"]:
-                    print(f"[x] {i['keys']:<26} {i['title']}  ({i['id']}, {i['mastered']})")
-        print(f"\n{sum(1 for i in items if i['mastered'])} mastered, {len(learning)} to go")
+            for i in p["mastered"]:
+                print(f"[x] {i['keys']:<26} {i['title']}  ({i['id']}, {i['mastered']})")
+        print(f"\n{len(p['mastered'])} of {p['total']} mastered")
+        return 0
+
+    if cmd == "reset":
+        s["mastered"] = {}
+        save_state(s)
         return 0
 
     if cmd == "add" and len(args) >= 2:

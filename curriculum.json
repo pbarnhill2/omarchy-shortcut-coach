@@ -1,42 +1,363 @@
-[
-  {"id": "keybindings", "action": "Keybindings", "keys": "SUPER + K", "title": "Cheat sheet of every shortcut", "why": "Type a word to filter. When you forget anything else, start here."},
-  {"id": "launcher", "action": "Omarchy menu", "keys": "SUPER + SPACE", "title": "Launch any app", "why": "Start typing the app's name and press Enter."},
-  {"id": "close", "action": "Close window", "keys": "SUPER + W", "title": "Close the window you're in", "why": "Works on every app, the same way."},
-  {"id": "focus-arrows", "action": "Focus on left window", "keys": "SUPER + ARROWS", "title": "Jump between windows", "why": "Super with an arrow key moves to the window in that direction."},
-  {"id": "workspace-switch", "action": "Switch to workspace 1", "keys": "SUPER + 1-9", "title": "Go to desktop 1 to 9", "why": "Each desktop is one number away."},
-  {"id": "workspace-move", "action": "Move window to workspace 1", "keys": "SUPER SHIFT + 1-9", "title": "Send a window to another desktop", "why": "You go along with it."},
-  {"id": "clipboard", "action": "Clipboard manager", "keys": "SUPER CTRL + V", "title": "Clipboard history", "why": "Everything you've copied recently, not just the last thing."},
-  {"id": "scratchpad", "action": "Toggle scratchpad", "keys": "SUPER + S", "title": "Show or hide the scratchpad", "why": "A hidden drawer that appears over whatever desktop you're on."},
-  {"id": "scratchpad-move", "action": "Move window to scratchpad", "keys": "SUPER ALT + S", "title": "Put a window in the scratchpad", "why": "Take it out again with Super + Shift + a number."},
-  {"id": "pop-out", "action": "Pop window out (float & pin)", "keys": "SUPER + O", "title": "Pop out and pin a window", "why": "It floats on top and follows you to every desktop. Great for a video call."},
-  {"id": "float", "action": "Toggle window floating/tiling", "keys": "SUPER + T", "title": "Float a window", "why": "Lifts it out of the tiles but leaves it on its own desktop."},
-  {"id": "ocr", "action": "Extract text (OCR) from screenshot", "keys": "SUPER CTRL + PRINT", "title": "Copy text from anywhere on screen", "why": "Drag a box around text in an image, video or locked PDF."},
-  {"id": "group", "action": "Toggle window grouping", "keys": "SUPER + G", "title": "Stack windows as tabs", "why": "Several windows share one tile, like browser tabs."},
-  {"id": "group-next", "action": "Next window in group", "keys": "SUPER ALT + TAB", "title": "Next tab in a group", "why": "Flip through the windows stacked in a group."},
-  {"id": "workspace-former", "action": "Former workspace", "keys": "SUPER CTRL + TAB", "title": "Back to the last desktop", "why": "Bounce between two desktops, like Alt + Tab for desktops."},
-  {"id": "alt-tab", "action": "Focus on next window", "keys": "ALT + TAB", "title": "Cycle through windows", "why": "Walks through the windows on this desktop."},
-  {"id": "swap", "action": "Swap window to the left", "keys": "SUPER SHIFT + ARROWS", "title": "Swap a window with its neighbor", "why": "Rearrange tiles without the mouse."},
-  {"id": "full-width", "action": "Full width", "keys": "SUPER ALT + F", "title": "Make a window full width", "why": "Takes the whole desktop but keeps the bar and gaps. Press again to undo."},
-  {"id": "fullscreen", "action": "Full screen", "keys": "SUPER + F", "title": "True full screen", "why": "Covers everything, bar included."},
-  {"id": "split", "action": "Toggle window split", "keys": "SUPER + J", "title": "Flip side-by-side to stacked", "why": "Switches how two tiles share the space."},
-  {"id": "resize", "action": "Expand window left", "keys": "SUPER + MINUS / EQUAL", "title": "Resize a tile", "why": "Add Shift for height, Alt for a little, Ctrl for a lot."},
-  {"id": "move-silent", "action": "Move window silently to workspace 1", "keys": "SUPER SHIFT ALT + 1-9", "title": "Send a window away and stay put", "why": "Like Super + Shift + number, but you don't follow it."},
-  {"id": "screenshot", "action": "Screenshot (Omasnap)", "keys": "PRINT", "title": "Screenshot", "why": "Pick an area, a window or the whole screen."},
-  {"id": "screenrecord", "action": "Screenrecording", "keys": "ALT + PRINT", "title": "Record the screen", "why": "Same picker as a screenshot, but video."},
-  {"id": "color-picker", "action": "Color picker", "keys": "SUPER + PRINT", "title": "Grab any color on screen", "why": "Click a pixel and its hex code goes to the clipboard."},
-  {"id": "emojis", "action": "Emojis", "keys": "SUPER CTRL + E", "title": "Emoji picker", "why": "Search and insert an emoji anywhere."},
-  {"id": "share", "action": "Share", "keys": "SUPER CTRL + S", "title": "Share menu", "why": "Send the clipboard, a file or a folder to another device."},
-  {"id": "notif-dismiss", "action": "Dismiss last notification", "keys": "SUPER + COMMA", "title": "Dismiss a notification", "why": "Add Shift to clear them all."},
-  {"id": "notif-silence", "action": "Toggle silencing notifications", "keys": "SUPER CTRL + COMMA", "title": "Do not disturb", "why": "Silence notifications during a meeting or a recording."},
-  {"id": "notif-history", "action": "Open notification history", "keys": "SUPER SHIFT ALT + COMMA", "title": "Notifications you missed", "why": "Everything that popped up while you were away."},
-  {"id": "calculator", "action": "Calculator", "keys": "SUPER CTRL + Q", "title": "Calculator", "why": "A quick calculator on top of everything."},
-  {"id": "reminder", "action": "Set reminder", "keys": "SUPER CTRL + R", "title": "Set a reminder", "why": "A desktop notification in a few minutes."},
-  {"id": "lock", "action": "Lock system", "keys": "SUPER CTRL + L", "title": "Lock the screen", "why": "Before you walk away."},
-  {"id": "toggle-bar", "action": "Toggle top bar", "keys": "SUPER SHIFT + SPACE", "title": "Hide or show the top bar", "why": "A little more room for a presentation."},
-  {"id": "transparency", "action": "Toggle window transparency", "keys": "SUPER + BACKSPACE", "title": "Make a window solid", "why": "Turns off transparency for the window you're in."},
-  {"id": "theme-menu", "action": "Theme menu", "keys": "SUPER SHIFT CTRL + SPACE", "title": "Switch themes", "why": "Pick a new look for the whole desktop."},
-  {"id": "background", "action": "Background switcher", "keys": "SUPER CTRL + SPACE", "title": "Change the wallpaper", "why": "Pick from the current theme's wallpapers."},
-  {"id": "system-menu", "action": "System menu", "keys": "SUPER + ESCAPE", "title": "System menu", "why": "Lock, suspend, restart or shut down."},
-  {"id": "layout", "action": "Toggle workspace layout", "keys": "SUPER + L", "title": "Switch this desktop's layout", "why": "Toggles between tiling layouts."},
-  {"id": "pseudo", "action": "Pseudo window", "keys": "SUPER + P", "title": "Pseudo-tile a window", "why": "Keeps its own size inside its tile."}
-]
+{
+ "levels": {
+  "1": "First Day",
+  "2": "Daily Driver",
+  "3": "Window Wrangler",
+  "4": "Power User",
+  "5": "Omarchy Master"
+ },
+ "lessons": [
+  {
+   "id": "keybindings",
+   "action": "Keybindings",
+   "keys": "SUPER + K",
+   "title": "Cheat sheet of every shortcut",
+   "why": "Type a word to filter. When you forget anything else, start here.",
+   "level": 1
+  },
+  {
+   "id": "launcher",
+   "action": "Omarchy menu",
+   "keys": "SUPER + SPACE",
+   "title": "Launch any app",
+   "why": "Start typing the app's name and press Enter.",
+   "level": 1
+  },
+  {
+   "id": "close",
+   "action": "Close window",
+   "keys": "SUPER + W",
+   "title": "Close the window you're in",
+   "why": "Works on every app, the same way.",
+   "level": 1
+  },
+  {
+   "id": "focus-arrows",
+   "action": "Focus on left window",
+   "keys": "SUPER + ARROWS",
+   "title": "Jump between windows",
+   "why": "Super with an arrow key moves to the window in that direction.",
+   "level": 1
+  },
+  {
+   "id": "workspace-switch",
+   "action": "Switch to workspace 1",
+   "keys": "SUPER + 1-9",
+   "title": "Go to desktop 1 to 9",
+   "why": "Each desktop is one number away.",
+   "level": 1
+  },
+  {
+   "id": "workspace-move",
+   "action": "Move window to workspace 1",
+   "keys": "SUPER SHIFT + 1-9",
+   "title": "Send a window to another desktop",
+   "why": "You go along with it.",
+   "level": 1
+  },
+  {
+   "id": "fullscreen",
+   "action": "Full screen",
+   "keys": "SUPER + F",
+   "title": "True full screen",
+   "why": "Covers everything, bar included.",
+   "level": 1
+  },
+  {
+   "id": "screenshot",
+   "action": "Screenshot (Omasnap)",
+   "keys": "PRINT",
+   "title": "Screenshot",
+   "why": "Pick an area, a window or the whole screen.",
+   "level": 1
+  },
+  {
+   "id": "clipboard",
+   "action": "Clipboard manager",
+   "keys": "SUPER CTRL + V",
+   "title": "Clipboard history",
+   "why": "Everything you've copied recently, not just the last thing.",
+   "level": 2
+  },
+  {
+   "id": "alt-tab",
+   "action": "Focus on next window",
+   "keys": "ALT + TAB",
+   "title": "Cycle through windows",
+   "why": "Walks through the windows on this desktop.",
+   "level": 2
+  },
+  {
+   "id": "workspace-former",
+   "action": "Former workspace",
+   "keys": "SUPER CTRL + TAB",
+   "title": "Back to the last desktop",
+   "why": "Bounce between two desktops, like Alt + Tab for desktops.",
+   "level": 2
+  },
+  {
+   "id": "float",
+   "action": "Toggle window floating/tiling",
+   "keys": "SUPER + T",
+   "title": "Float a window",
+   "why": "Lifts it out of the tiles but leaves it on its own desktop.",
+   "level": 2
+  },
+  {
+   "id": "swap",
+   "action": "Swap window to the left",
+   "keys": "SUPER SHIFT + ARROWS",
+   "title": "Swap a window with its neighbor",
+   "why": "Rearrange tiles without the mouse.",
+   "level": 2
+  },
+  {
+   "id": "full-width",
+   "action": "Full width",
+   "keys": "SUPER ALT + F",
+   "title": "Make a window full width",
+   "why": "Takes the whole desktop but keeps the bar and gaps. Press again to undo.",
+   "level": 2
+  },
+  {
+   "id": "emojis",
+   "action": "Emojis",
+   "keys": "SUPER CTRL + E",
+   "title": "Emoji picker",
+   "why": "Search and insert an emoji anywhere.",
+   "level": 2
+  },
+  {
+   "id": "notif-dismiss",
+   "action": "Dismiss last notification",
+   "keys": "SUPER + COMMA",
+   "title": "Dismiss a notification",
+   "why": "Add Shift to clear them all.",
+   "level": 2
+  },
+  {
+   "id": "lock",
+   "action": "Lock system",
+   "keys": "SUPER CTRL + L",
+   "title": "Lock the screen",
+   "why": "Before you walk away.",
+   "level": 2
+  },
+  {
+   "id": "scratchpad",
+   "action": "Toggle scratchpad",
+   "keys": "SUPER + S",
+   "title": "Show or hide the scratchpad",
+   "why": "A hidden drawer that appears over whatever desktop you're on.",
+   "level": 3
+  },
+  {
+   "id": "scratchpad-move",
+   "action": "Move window to scratchpad",
+   "keys": "SUPER ALT + S",
+   "title": "Put a window in the scratchpad",
+   "why": "Take it out again with Super + Shift + a number.",
+   "level": 3
+  },
+  {
+   "id": "pop-out",
+   "action": "Pop window out (float & pin)",
+   "keys": "SUPER + O",
+   "title": "Pop out and pin a window",
+   "why": "It floats on top and follows you to every desktop. Great for a video call.",
+   "level": 3
+  },
+  {
+   "id": "group",
+   "action": "Toggle window grouping",
+   "keys": "SUPER + G",
+   "title": "Stack windows as tabs",
+   "why": "Several windows share one tile, like browser tabs.",
+   "level": 3
+  },
+  {
+   "id": "group-next",
+   "action": "Next window in group",
+   "keys": "SUPER ALT + TAB",
+   "title": "Next tab in a group",
+   "why": "Flip through the windows stacked in a group.",
+   "level": 3
+  },
+  {
+   "id": "group-out",
+   "action": "Move active window out of group",
+   "keys": "SUPER ALT + G",
+   "title": "Pull a window out of a group",
+   "why": "It goes back to being its own tile.",
+   "level": 3
+  },
+  {
+   "id": "split",
+   "action": "Toggle window split",
+   "keys": "SUPER + J",
+   "title": "Flip side-by-side to stacked",
+   "why": "Switches how two tiles share the space.",
+   "level": 3
+  },
+  {
+   "id": "resize",
+   "action": "Expand window left",
+   "keys": "SUPER + MINUS / EQUAL",
+   "title": "Resize a tile",
+   "why": "Add Shift for height, Alt for a little, Ctrl for a lot.",
+   "level": 3
+  },
+  {
+   "id": "move-silent",
+   "action": "Move window silently to workspace 1",
+   "keys": "SUPER SHIFT ALT + 1-9",
+   "title": "Send a window away and stay put",
+   "why": "Like Super + Shift + number, but you don't follow it.",
+   "level": 3
+  },
+  {
+   "id": "mouse-move",
+   "action": "Move window",
+   "keys": "SUPER + LEFT MOUSE BUTTON",
+   "title": "Drag any window",
+   "why": "Hold Super and drag with the left mouse button, from anywhere in the window.",
+   "level": 3
+  },
+  {
+   "id": "mouse-resize",
+   "action": "Resize window",
+   "keys": "SUPER + RIGHT MOUSE BUTTON",
+   "title": "Resize with the mouse",
+   "why": "Hold Super and drag with the right mouse button.",
+   "level": 3
+  },
+  {
+   "id": "ocr",
+   "action": "Extract text (OCR) from screenshot",
+   "keys": "SUPER CTRL + PRINT",
+   "title": "Copy text from anywhere on screen",
+   "why": "Drag a box around text in an image, video or locked PDF.",
+   "level": 4
+  },
+  {
+   "id": "screenrecord",
+   "action": "Screenrecording",
+   "keys": "ALT + PRINT",
+   "title": "Record the screen",
+   "why": "Same picker as a screenshot, but video.",
+   "level": 4
+  },
+  {
+   "id": "color-picker",
+   "action": "Color picker",
+   "keys": "SUPER + PRINT",
+   "title": "Grab any color on screen",
+   "why": "Click a pixel and its hex code goes to the clipboard.",
+   "level": 4
+  },
+  {
+   "id": "share",
+   "action": "Share",
+   "keys": "SUPER CTRL + S",
+   "title": "Share menu",
+   "why": "Send the clipboard, a file or a folder to another device.",
+   "level": 4
+  },
+  {
+   "id": "calculator",
+   "action": "Calculator",
+   "keys": "SUPER CTRL + Q",
+   "title": "Calculator",
+   "why": "A quick calculator on top of everything.",
+   "level": 4
+  },
+  {
+   "id": "reminder",
+   "action": "Set reminder",
+   "keys": "SUPER CTRL + R",
+   "title": "Set a reminder",
+   "why": "A desktop notification in a few minutes.",
+   "level": 4
+  },
+  {
+   "id": "notif-silence",
+   "action": "Toggle silencing notifications",
+   "keys": "SUPER CTRL + COMMA",
+   "title": "Do not disturb",
+   "why": "Silence notifications during a meeting or a recording.",
+   "level": 4
+  },
+  {
+   "id": "notif-history",
+   "action": "Open notification history",
+   "keys": "SUPER SHIFT ALT + COMMA",
+   "title": "Notifications you missed",
+   "why": "Everything that popped up while you were away.",
+   "level": 4
+  },
+  {
+   "id": "toggle-bar",
+   "action": "Toggle top bar",
+   "keys": "SUPER SHIFT + SPACE",
+   "title": "Hide or show the top bar",
+   "why": "A little more room for a presentation.",
+   "level": 4
+  },
+  {
+   "id": "theme-menu",
+   "action": "Theme menu",
+   "keys": "SUPER SHIFT CTRL + SPACE",
+   "title": "Switch themes",
+   "why": "Pick a new look for the whole desktop.",
+   "level": 5
+  },
+  {
+   "id": "background",
+   "action": "Background switcher",
+   "keys": "SUPER CTRL + SPACE",
+   "title": "Change the wallpaper",
+   "why": "Pick from the current theme's wallpapers.",
+   "level": 5
+  },
+  {
+   "id": "system-menu",
+   "action": "System menu",
+   "keys": "SUPER + ESCAPE",
+   "title": "System menu",
+   "why": "Lock, suspend, restart or shut down.",
+   "level": 5
+  },
+  {
+   "id": "transparency",
+   "action": "Toggle window transparency",
+   "keys": "SUPER + BACKSPACE",
+   "title": "Make a window solid",
+   "why": "Turns off transparency for the window you're in.",
+   "level": 5
+  },
+  {
+   "id": "gaps",
+   "action": "Toggle window gaps",
+   "keys": "SUPER SHIFT + BACKSPACE",
+   "title": "Turn window gaps off and on",
+   "why": "Squeeze out every pixel on this desktop.",
+   "level": 5
+  },
+  {
+   "id": "layout",
+   "action": "Toggle workspace layout",
+   "keys": "SUPER + L",
+   "title": "Switch this desktop's layout",
+   "why": "Toggles between tiling layouts.",
+   "level": 5
+  },
+  {
+   "id": "pseudo",
+   "action": "Pseudo window",
+   "keys": "SUPER + P",
+   "title": "Pseudo-tile a window",
+   "why": "Keeps its own size inside its tile.",
+   "level": 5
+  }
+ ]
+}
