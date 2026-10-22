@@ -302,6 +302,8 @@ Item {
         Row {
           spacing: Style.space(10)
           visible: root.message === ""
+          // No second answer while one is saving.
+          enabled: !answerProc.running
           CardButton {
             visible: !root.revealed
             label: "I know it"
@@ -311,7 +313,12 @@ Item {
           CardButton {
             visible: !root.revealed
             label: "Show me"
-            onClicked: { root.revealed = true; root.answer("fail"); linger.restart() }
+            onClicked: {
+              if (answerProc.running) return
+              root.revealed = true
+              root.answer("fail")
+              linger.restart()
+            }
           }
           CardButton {
             visible: root.revealed

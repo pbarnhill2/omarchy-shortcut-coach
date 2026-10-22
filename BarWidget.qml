@@ -65,10 +65,20 @@ BarWidget {
   // in one locked call. They live here, not in the row, so a refresh that
   // rebuilds the rows can't drop one.
   property var pending: []
+  // Lessons answered but not saved yet, so a refresh can't bring them back
+  // for a second answer.
+  property var pendingIds: ({})
   property string undoTitle: ""
   property var undoArgs: null
 
   function commit(args, title) {
+    var id = args[1]
+    if (args[0] !== "undo") {
+      if (pendingIds[id]) return
+      var ids = Object.assign({}, pendingIds)
+      ids[id] = true
+      pendingIds = ids
+    }
     pending = pending.concat([args])
     flushTimer.restart()
     if (title !== "") {
@@ -78,11 +88,20 @@ BarWidget {
     }
   }
 
+  // One save at a time, in order: an undo can never overtake its answer.
   function flush() {
-    if (pending.length === 0) return
-    var batch = JSON.stringify(pending)
+    if (pending.length === 0 || flushProc.running) return
+    flushProc.command = [root.cli, "apply", JSON.stringify(pending)]
     pending = []
-    Quickshell.execDetached([root.cli, "apply", batch])
+    flushProc.running = true
+  }
+
+  Process {
+    id: flushProc
+    onExited: {
+      if (root.pending.length > 0) root.flush()
+      else root.pendingIds = ({})
+    }
   }
 
   Timer {
@@ -141,7 +160,7 @@ BarWidget {
         }
         var wasComplete = root.complete
         root.batch = data.batch || 6
-        root.upNext = data.upNext || []
+        root.upNext = (data.upNext || []).filter(function(i) { return !root.pendingIds[i.id] })
         root.sections = secs
         root.mastered = data.mastered || 0
         root.total = data.total || 0
