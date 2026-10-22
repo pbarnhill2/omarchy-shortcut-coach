@@ -75,10 +75,13 @@ shortcuts you don't have are skipped.
 
 ### Practice and check-ins
 
-After you try a shortcut, it comes back as a small card under the bar:
-flash card under the bar: *"What's the shortcut for… float a window?"* Think of
-it (or press it), then **Show answer**: the card flips to the keys and you
-grade yourself.
+Press **Practice** and the shortcut asks you to try it once, then moves to
+**In practice**. From then on it comes back as a flash card under the bar:
+*"What's the shortcut for… stack windows as tabs?"* Think of it (or press it),
+then **Show answer**: the card flips to the keys and you grade yourself. Cards
+that are due also wait in the **Review** tab, one at a time.
+
+![A flash card, front and back](docs/flashcard.png)
 
 | Check-in | 1 | 2 | 3 | 4 | 5 | 6 |
 |---|---|---|---|---|---|---|
