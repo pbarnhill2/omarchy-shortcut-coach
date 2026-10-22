@@ -14,6 +14,7 @@
   shortcut-coach pause on|off            pause or resume check-ins
   shortcut-coach intro-seen              don't explain practice again
   shortcut-coach setup-seen              don't show the practice-desktop card again
+  shortcut-coach welcome                 show the first-time cards again (keeps progress)
   shortcut-coach remove ID               delete one you added
   shortcut-coach batch N                 how many to show in up next (default 6)
   shortcut-coach done-section N          check off a whole section (1-5; 0 = added for you)
@@ -373,6 +374,13 @@ def main(argv):
 
     if cmd == "intro-seen":
         s["introSeen"] = True
+        save_state(s)
+        return 0
+
+    if cmd == "welcome":
+        # Show the first-time cards again; progress stays as it is.
+        s["setupSeen"] = False
+        s["introSeen"] = False
         save_state(s)
         return 0
 

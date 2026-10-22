@@ -105,6 +105,7 @@ $coach done-section 2     # tick a whole section
 $coach fav <id>           # star it (your favorites list)
 $coach pause on           # pause check-ins
 $coach batch 8            # show 8 in up next (default 6)
+$coach welcome            # see the first-time cards again, progress kept
 $coach reset --yes        # start over (keeps lessons you added)
 ```
 
