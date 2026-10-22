@@ -58,7 +58,7 @@
    "action": "Close window",
    "keys": "SUPER + W",
    "title": "Close the window you're in",
-   "why": "Works on every app, the same way.",
+   "why": "Closes the highlighted window. Check the border first.",
    "level": 1
   },
   {
@@ -66,8 +66,9 @@
    "action": "Focus on left window",
    "keys": "SUPER + ARROWS",
    "title": "Jump between windows",
-   "why": "Moves to the window in that direction.",
-   "level": 1
+   "why": "The highlighted window is the one your keys act on.",
+   "level": 1,
+   "more": "One window is always the active one: it has the colored border. Everything you do goes to that window: typing, copy and paste, and every shortcut, including {close} to close it.\n\nThe highlight moves two ways. {focus-arrows} moves it to the window in that direction. And just pointing your mouse at a window makes it the active one, no click needed.\n\nThat second part catches people out: leave the mouse resting over another window, press {close}, and the wrong window closes. Glance at the border before you act."
   },
   {
    "id": "swap",

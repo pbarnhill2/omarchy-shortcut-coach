@@ -528,7 +528,7 @@ BarWidget {
     property bool trying: false
     property bool celebrating: false
     property bool leaving: false
-    readonly property bool busy: celebrating || leaving
+    readonly property bool busy: celebrating || leaving || trying
     width: ListView.view ? ListView.view.width : 0
     height: root.rowHeight
     opacity: leaving ? 0.45 : 1
@@ -558,20 +558,28 @@ BarWidget {
     }
 
     function pillClicked() {
-      if (busy) return
-      if (trying) {
-        leaving = true
-        root.commit(["later", item.id], "")
-      } else if (checkIn && revealed) {
+      if (busy || trying) return
+      if (checkIn && revealed) {
         leaving = true
         root.commit(["checkin", item.id, "fail"], "")
       } else if (checkIn) {
         revealed = true
       } else {
+        // One click: try it now, then it moves itself into In practice.
         if (!root.introSeen) root.showIntro = true
         trying = true
+        tryTimer.start()
       }
       root.hint = ""
+    }
+
+    Timer {
+      id: tryTimer
+      interval: 2600
+      onTriggered: {
+        row.leaving = true
+        root.commit(["later", row.item.id], "")
+      }
     }
 
     Rectangle {
@@ -602,15 +610,13 @@ BarWidget {
       anchors.verticalCenter: parent.verticalCenter
       opacity: row.busy ? 0 : 1
       enabled: !row.busy
-      primary: row.trying || (row.checkIn && row.revealed)
-      label: row.trying ? "✓ Tried it"
-           : row.checkIn && row.revealed ? "Got it"
+      primary: row.checkIn && row.revealed
+      label: row.checkIn && row.revealed ? "Got it"
            : row.checkIn ? "󰈈 Show me"
            : "󰥔 Practice"
-      hintText: row.trying ? "Done trying: first check-in in about 10 minutes"
-              : row.checkIn && row.revealed ? "It comes back in 10 minutes"
+      hintText: row.checkIn && row.revealed ? "It comes back in 10 minutes"
               : row.checkIn ? "Forgot? See the keys and try them"
-              : "Not sure yet: try it once, then quick check-ins"
+              : "Not sure yet: try it now, then it moves to In practice"
       onClicked: row.pillClicked()
     }
 
@@ -682,7 +688,7 @@ BarWidget {
       width: line1.width
       elide: Text.ElideRight
       maximumLineCount: 1
-      text: row.trying ? "Press " + (row.item.keys || "") + " now, then Tried it."
+      text: row.trying ? "Try it now: press " + (row.item.keys || "") + ". Moving to In practice…"
           : row.checkIn && row.revealed ? "Try it now. " + (row.item.why || "")
           : row.checkIn ? "Remember the keys? Tick it, or Show me."
           : (row.item.why || "")
@@ -726,7 +732,9 @@ BarWidget {
       anchors.verticalCenter: parent.verticalCenter
       checked: srow.mastered || srow.ticking
       pop: srow.ticking
-      hintText: srow.mastered ? "Not sure after all? Unmark it" : "Know it: mark it as known"
+      hintText: srow.mastered ? "Not sure after all? Unmark it"
+              : srow.item.practicing ? "Know it now? Mark it as known and stop check-ins"
+              : "Know it: mark it as known"
       onClicked: srow.toggle()
     }
     Keys {
@@ -786,6 +794,12 @@ BarWidget {
     readonly property bool open: root.expanded[key] === undefined ? openByDefault : !!root.expanded[key]
     visible: items.length > 0
     width: parent ? parent.width : 0
+    // Light up when something arrives, so it's clear where it went.
+    property int lastCount: -1
+    onItemsChanged: {
+      if (lastCount >= 0 && items.length > lastCount) arrived.restart()
+      lastCount = items.length
+    }
     Item {
       width: parent.width
       height: Style.space(32)
@@ -793,6 +807,21 @@ BarWidget {
         anchors.fill: parent
         radius: Style.space(6)
         color: listMouse.containsMouse ? Qt.rgba(root.fg.r, root.fg.g, root.fg.b, 0.05) : "transparent"
+      }
+      Rectangle {
+        id: glow
+        anchors.fill: parent
+        radius: Style.space(6)
+        color: Qt.rgba(root.accent.r, root.accent.g, root.accent.b, 0.22)
+        border.color: root.accent
+        border.width: Math.max(1, Style.space(1))
+        opacity: 0
+        SequentialAnimation {
+          id: arrived
+          NumberAnimation { target: glow; property: "opacity"; to: 1; duration: 200 }
+          PauseAnimation { duration: 900 }
+          NumberAnimation { target: glow; property: "opacity"; to: 0; duration: 700 }
+        }
       }
       MouseArea {
         id: listMouse
@@ -1228,7 +1257,7 @@ BarWidget {
             Text {
               width: parent.width
               wrapMode: Text.WordWrap
-              text: "This is spaced recall, the method behind Pimsleur's language courses. Try the shortcut once now. Then it steps aside and comes back as a quick check-in while you work: after 10 minutes, 1 hour, 1 day, 4 days, 2 weeks and 6 weeks."
+              text: "This is spaced recall, the method behind Pimsleur's language courses. Try the shortcut once now; it then moves to In practice and comes back as a quick check-in while you work: after 10 minutes, 1 hour, 1 day, 4 days, 2 weeks and 6 weeks."
               color: root.fg
               font.family: Style.font.family
               font.pixelSize: Style.font.bodySmall
