@@ -12,8 +12,9 @@
    "action": "Keybindings",
    "keys": "SUPER + K",
    "title": "Cheat sheet of every shortcut",
-   "why": "Type a word to filter. Start here when stuck.",
-   "level": 1
+   "why": "Type to filter. Enter runs the one you pick.",
+   "level": 1,
+   "more": "Lists every shortcut on your machine, including any you've added or changed.\n\nStart typing to filter: a word like \"window\" or \"screenshot\" is enough. Then press Enter on the one you want and it runs, right there. So even before you've learned a shortcut, Super + K gets you to it.\n\nWhen you forget anything else, start here."
   },
   {
    "id": "mouse-move",
