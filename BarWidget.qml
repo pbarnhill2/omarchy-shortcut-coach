@@ -777,6 +777,10 @@ BarWidget {
         elide: Text.ElideRight
         text: row.item.title || ""
         color: row.celebrating ? root.dim : root.fg
+        // Cut off? Pointing at it shows the whole line below.
+        HoverHandler {
+          onHoveredChanged: root.hint = hovered && title.truncated ? title.text : (root.hint === title.text ? "" : root.hint)
+        }
         font.family: Style.font.family
         font.pixelSize: Style.font.body
         Behavior on color { ColorAnimation { duration: 300 } }
@@ -814,9 +818,13 @@ BarWidget {
       variants: row.item.variants || []
     }
     Text {
+      id: tip
       visible: !row.showNested
       x: root.textCol
       y: line1.y + line1.height + Style.space(5)
+      HoverHandler {
+        onHoveredChanged: root.hint = hovered && tip.truncated ? tip.text : (root.hint === tip.text ? "" : root.hint)
+      }
       width: line1.width
       elide: Text.ElideRight
       maximumLineCount: 1

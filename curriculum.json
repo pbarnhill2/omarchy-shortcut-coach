@@ -49,7 +49,7 @@
    "action": "Omarchy menu",
    "keys": "SUPER + SPACE",
    "title": "Launch any app",
-   "why": "Type an app name, Enter. Or click the top-left logo.",
+   "why": "Type an app name, Enter. Or click the logo.",
    "level": 1,
    "more": "Opens the Omarchy menu, the same one you get by clicking the Omarchy logo in the top-left corner of the screen.\n\nStart typing to search: an app's name and Enter launches it. The search reaches inside the submenus too, so typing \"theme\" from the top takes you straight there.\n\nA good rule: learn the shortcuts you use often, and use the menu for the rest."
   },
@@ -58,15 +58,16 @@
    "action": "Close window",
    "keys": "SUPER + W",
    "title": "Close the window you're in",
-   "why": "Closes the highlighted window. Check the border first.",
-   "level": 1
+   "why": "Closes the highlighted window. Check the border.",
+   "level": 1,
+   "more": "Closes the window that has the colored border, the active one. It works on every app the same way.\n\nThe highlight follows your mouse, so if the pointer is resting over another window, that's the one that closes. Glance at the border first.\n\nTo close every window at once, use Ctrl + Alt + Delete."
   },
   {
    "id": "focus-arrows",
    "action": "Focus on left window",
    "keys": "SUPER + ARROWS",
    "title": "Jump between windows",
-   "why": "The highlighted window is the one your keys act on.",
+   "why": "Keys act on the highlighted window.",
    "level": 1,
    "more": "One window is always the active one: it has the colored border. Everything you do goes to that window: typing, copy and paste, and every shortcut, including {close} to close it.\n\nThe highlight moves two ways. {focus-arrows} moves it to the window in that direction. And just pointing your mouse at a window makes it the active one, no click needed.\n\nThat second part catches people out: leave the mouse resting over another window, press {close}, and the wrong window closes. Glance at the border before you act."
   },
@@ -229,7 +230,7 @@
      "email"
     ]
    },
-   "why": "Your everyday sites, each with its own window and key.",
+   "why": "Everyday sites with their own window and key.",
    "more": "Omarchy has no dock. Instead, the sites you use every day become apps: their own window, no browser tabs or address bar, and their own shortcut. It's how DHH runs X, YouTube, email and his calendar.\n\nA few come set up: {x} opens X, {yt} YouTube, {mail} email.\n\nMake your own from any web address in the Omarchy menu ({launcher}): Install › Web App, then give it a name and the address. It shows up in the app launcher like any other app.",
    "id": "webapps",
    "level": 3
@@ -301,7 +302,7 @@
    "action": "Toggle locking on idle",
    "keys": "SUPER CTRL + I",
    "title": "Stay awake",
-   "why": "No screen lock during a movie or talk. Again to undo.",
+   "why": "No screen lock during a movie. Again to undo.",
    "more": "Normally Omarchy dims and locks the screen when you've been away for a few minutes. {stay-awake} turns that off, for a movie, a presentation or a long read. Press it again to turn locking back on.",
    "id": "stay-awake",
    "level": 3
