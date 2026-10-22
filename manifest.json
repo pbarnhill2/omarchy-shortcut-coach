@@ -5,8 +5,11 @@
   "version": "0.6.0",
   "author": "Patrick Barnhill",
   "license": "MIT",
-  "description": "Learn Omarchy shortcuts a few at a time. A short checklist in the bar; check one off when you know it and the next one takes its place.",
-  "kinds": ["service", "bar-widget"],
+  "description": "Learn Omarchy shortcuts a few at a time: a short checklist in the bar, plus spaced check-ins (10m, 1h, 1d, 4d, 2w, 6w) for the ones you're unsure of.",
+  "kinds": [
+    "service",
+    "bar-widget"
+  ],
   "keepLoaded": true,
   "entryPoints": {
     "service": "Service.qml",
@@ -14,12 +17,13 @@
   },
   "barWidget": {
     "displayName": "Shortcut Coach",
-    "description": "A checklist of shortcuts you're learning. Click to open; check one off when you know it.",
+    "description": "Shortcuts to learn next. Tick what you know, practice what you don't.",
     "category": "Info",
     "allowMultiple": false,
     "defaultSection": "right",
     "defaults": {
       "batchSize": 6
     }
-  }
+  },
+  "repository": "https://github.com/pbarnhill2/omarchy-shortcut-coach"
 }
