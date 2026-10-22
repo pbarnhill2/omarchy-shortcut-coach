@@ -236,13 +236,34 @@
    "level": 3
   },
   {
+   "id": "universal-copy",
+   "action": "Universal copy",
+   "keys": "SUPER + C",
+   "level": 3,
+   "title": "Copy and paste, everywhere",
+   "variants": {
+    "paste": [
+     "Universal paste",
+     "SUPER + V",
+     "paste"
+    ],
+    "cut": [
+     "Universal cut",
+     "SUPER + X",
+     "cut"
+    ]
+   },
+   "why": "Same keys in every app, terminals included.",
+   "more": "{universal-copy} copies, {paste} pastes and {cut} cuts, the same way in every app.\n\nThe reason to use them: in a terminal, Ctrl + C doesn't copy, it stops whatever is running. These keys know when you're in a terminal and send the right thing there, so copying is always safe.\n\nEverything you copy also lands in the clipboard history, {clipboard}, so you can paste something from earlier too."
+  },
+  {
    "id": "clipboard",
    "action": "Clipboard manager",
    "keys": "SUPER CTRL + V",
    "title": "Clipboard history",
    "why": "Everything you've copied lately.",
    "level": 3,
-   "more": "Omarchy keeps a history of what you copy. {clipboard} opens it; pick an entry to paste it.\n\nRelated: Super + C and Super + V copy and paste the same way in every app, terminals included, where Ctrl + C would stop a running program.\n\nTo remove one entry, like a password you copied, highlight it and press Delete. Shift + Delete clears the whole history."
+   "more": "Omarchy keeps a history of what you copy. {clipboard} opens it; pick an entry to paste it.\n\nTo remove one entry, like a password you copied, highlight it and press Delete. Shift + Delete clears the whole history."
   },
   {
    "id": "alt-tab",
