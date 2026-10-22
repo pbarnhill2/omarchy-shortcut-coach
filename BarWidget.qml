@@ -1095,7 +1095,7 @@ BarWidget {
     bar: root.bar
     open: root.opened
     focusTarget: keyCatcher
-    contentWidth: panel.fittedContentWidth(Style.space(580))
+    contentWidth: panel.fittedContentWidth(Style.space(660))
     contentHeight: panel.fittedContentHeight(column.implicitHeight + Style.space(42), Style.space(960))
 
     PanelKeyCatcher {

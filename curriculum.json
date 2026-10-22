@@ -443,7 +443,7 @@
   {
    "menu": true,
    "keys": "MENU › UPDATE › HARDWARE",
-   "title": "Fix stuck Wi-Fi, sound or Bluetooth",
+   "title": "Fix stuck Wi-Fi or sound",
    "why": "Restart just that piece instead of rebooting.",
    "more": "When Wi-Fi drops, sound goes silent or Bluetooth won't connect, restart just that part. In the Omarchy menu ({launcher}): Update › Hardware, then Wi-Fi, Audio, Bluetooth or Trackpad.\n\nIf the bar or notifications misbehave, Update › Process › Shell restarts them. Either way, it's quicker than a reboot.",
    "id": "restart-stuck",
